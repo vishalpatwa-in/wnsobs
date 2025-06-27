@@ -200,5 +200,26 @@ Develop a native OBS Studio plugin for Windows 11 that enables simultaneous stre
 - **PowerShell in CI**: Basic PowerShell works fine, issues were with complex OBS operations
 - **Minimal headers approach**: Stub OBS headers enable CI building without full OBS development environment
 
-## 🏆 PROJECT STATUS: COMPLETE SUCCESS
-The OBS Studio Multistream Plugin development is complete with a fully functional GitHub Actions CI/CD pipeline that automatically builds, packages, and distributes the plugin on every commit!
+## 🚨 URGENT ISSUE: DOCK NOT APPEARING IN OBS
+
+**Current Problem:** Plugin loads successfully but "Multistream" option doesn't appear in View → Docks menu.
+
+**Root Cause Identified:** 
+- Our plugin uses **OBS properties-based dock registration** (`obs_frontend_add_dock(properties, settings, this)`)
+- OBS expects **Qt widget-based dock registration** (`obs_frontend_add_dock_by_id()` with QWidget)
+- The current approach creates a properties dialog, not a dockable widget
+
+**Required Fix:**
+- [ ] Replace properties-based dock with Qt QDockWidget approach
+- [ ] Use `obs_frontend_get_main_window()` to get QMainWindow parent
+- [ ] Create QDockWidget with proper widget content  
+- [ ] Use `obs_frontend_add_dock_by_id()` for menu integration
+- [ ] Test dock appears in View → Docks → Multistream
+
+**Technical Reference:**
+- OBS Forum: Plugin dock requires QDockWidget + obs_frontend_add_dock_by_id()
+- Documentation: obs_frontend_add_dock() is deprecated since v30.0
+- Working pattern: QMainWindow* → QDockWidget → obs_frontend_add_dock_by_id()
+
+## 🏆 PROJECT STATUS: NEEDS DOCK FIX
+The OBS Studio Multistream Plugin is functionally complete but requires dock registration fix to appear in OBS UI!

@@ -5,6 +5,18 @@
 #include <Windows.h>
 #include <string>
 
+// Qt includes for dock widget
+#include <QDockWidget>
+#include <QMainWindow>
+#include <QWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QTextEdit>
+#include <QLabel>
+#include <QPushButton>
+#include <QObject>
+#include <QString>
+
 struct StreamDestination;
 
 // Simple Win32-based configuration dialog
@@ -35,7 +47,9 @@ private:
 };
 
 // OBS Frontend dock implementation
-class MultistreamDock {
+class MultistreamDock : public QObject {
+    Q_OBJECT
+    
 public:
     MultistreamDock();
     ~MultistreamDock();
@@ -43,24 +57,20 @@ public:
     bool Initialize();
     void Shutdown();
     
-    // Called by OBS frontend when dock is shown/hidden
-    static void OnDockShow(obs_dock_t* dock, bool visible);
+private slots:
+    void OnAddDestination();
+    void OnEditDestination();
+    void OnRemoveDestination();
+    void OnStartStop();
     
 private:
-    // Create OBS properties for the dock
-    static obs_properties_t* GetProperties(void* data);
-    static void OnAddDestination(obs_properties_t* props, obs_property_t* property, void* data);
-    static void OnEditDestination(obs_properties_t* props, obs_property_t* property, void* data);
-    static void OnRemoveDestination(obs_properties_t* props, obs_property_t* property, void* data);
-    static void OnStartStop(obs_properties_t* props, obs_property_t* property, void* data);
-    static void OnRefresh(obs_properties_t* props, obs_property_t* property, void* data);
-    
     void UpdateDestinationList();
     void UpdateStatus();
     
-    obs_dock_t* dock;
-    obs_properties_t* properties;
-    obs_data_t* settings;
+    QDockWidget* dock;
+    QTextEdit* destinationList;
+    QLabel* statusLabel;
+    QPushButton* startStopBtn;
 };
 
 // Helper functions for Win32 dialogs
