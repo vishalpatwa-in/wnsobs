@@ -7,24 +7,15 @@
 #include <vector>
 #include <string>
 
+// Include StreamDestination definition
+#include "stream-destination.h"
+
 #define PLUGIN_NAME "obs-multistream"
 #define PLUGIN_VERSION "1.0.0"
 
 // Forward declarations
 class MultistreamDock;
 class MultistreamOutput;
-
-// Stream destination structure
-struct StreamDestination {
-    std::string name;
-    std::string url;
-    std::string key;
-    bool enabled;
-    bool useMainEncoder;
-    int bitrate;
-    
-    StreamDestination() : enabled(false), useMainEncoder(true), bitrate(2500) {}
-};
 
 // Main plugin class
 class MultistreamPlugin {
@@ -33,6 +24,7 @@ public:
     
     bool Initialize();
     void Shutdown();
+    void Cleanup(); // Public cleanup method for proper singleton destruction
     
     // Stream management
     void AddDestination(const StreamDestination& dest);

@@ -4,7 +4,8 @@
 #include <obs-output.h>
 #include <string>
 
-struct StreamDestination;
+// Include StreamDestination definition
+#include "stream-destination.h"
 
 // Class for managing individual RTMP outputs
 class MultistreamOutput {

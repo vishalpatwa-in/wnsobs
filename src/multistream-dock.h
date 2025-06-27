@@ -5,6 +5,9 @@
 #include <Windows.h>
 #include <string>
 
+// Include StreamDestination definition
+#include "stream-destination.h"
+
 // Check if Qt is available
 #ifdef QT_CORE_LIB
 // Qt includes for dock widget
@@ -20,8 +23,6 @@
 #include <QString>
 #define HAVE_QT
 #endif
-
-struct StreamDestination;
 
 // Simple Win32-based configuration dialog
 class StreamDestinationDialog {

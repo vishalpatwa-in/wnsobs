@@ -67,29 +67,27 @@ bool MultistreamPlugin::Initialize() {
 void MultistreamPlugin::Shutdown() {
     blog(LOG_INFO, "[%s] Shutting down plugin", PLUGIN_NAME);
     
-    // Stop all streaming
+    // Stop streaming if active
     StopStreaming();
     
-    // Clean up outputs
-    for (auto* output : outputs) {
-        delete output;
-    }
-    outputs.clear();
+    // Remove event callbacks
+    obs_frontend_remove_event_callback(OnMainStreamingStarted, nullptr);
+    obs_frontend_remove_event_callback(OnMainStreamingStopped, nullptr);
     
     // Clean up dock
     if (dock) {
         delete dock;
         dock = nullptr;
     }
+}
+
+void MultistreamPlugin::Cleanup() {
+    // Perform shutdown operations
+    Shutdown();
     
-    // Save settings
-    SaveSettings();
-    
-    // Remove event callback
-    obs_frontend_remove_event_callback(
-        [](enum obs_frontend_event event, void* data) {
-            // This lambda matches the one registered above
-        }, this);
+    // Reset the singleton instance
+    delete this;
+    instance = nullptr;
 }
 
 void MultistreamPlugin::AddDestination(const StreamDestination& dest) {
@@ -246,7 +244,7 @@ void MultistreamPlugin::OnMainStreamingStarted(enum obs_frontend_event event, vo
     UNUSED_PARAMETER(data);
     
     // Automatically start multistream when main streaming starts
-    StartStreaming();
+    MultistreamPlugin::GetInstance()->StartStreaming();
 }
 
 void MultistreamPlugin::OnMainStreamingStopped(enum obs_frontend_event event, void* data) {
@@ -254,7 +252,7 @@ void MultistreamPlugin::OnMainStreamingStopped(enum obs_frontend_event event, vo
     UNUSED_PARAMETER(data);
     
     // Automatically stop multistream when main streaming stops
-    StopStreaming();
+    MultistreamPlugin::GetInstance()->StopStreaming();
 }
 
 // ============================================================================
@@ -292,8 +290,8 @@ EXPORT void obs_module_unload(void) {
     
     MultistreamPlugin* plugin = MultistreamPlugin::GetInstance();
     if (plugin) {
-        delete plugin;
-        MultistreamPlugin::instance = nullptr;
+        // Use public cleanup method instead of accessing private members
+        plugin->Cleanup();
     }
 }
 
