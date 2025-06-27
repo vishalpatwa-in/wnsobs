@@ -371,18 +371,20 @@ The only remaining issue is that our stub `.lib` files are empty archives withou
 - **OBS Frontend API**: obs_frontend_add_event_callback, obs_frontend_get_*
 - **Utility Functions**: blog, bfree, calldata_*, signal_handler_*
 
-## 🔧 COMPILER INCLUDE PATH FIX (Current)
+## 🔧 STUB CODE COMPILATION FIXES (Current)
 
-**Issue Found:** Compiler can't find standard C headers like `stdint.h` - no include path set
+**Issues Found:** Multiple compilation errors in stub library code
 ```
-C:\obs-dev\stub.c(2): fatal error C1034: stdint.h: no include path set
+C:\obs-dev\stub.c(5): error C2371: 'size_t': redefinition; different basic types
+C:\obs-dev\stub.c(16): error C2001: newline in constant
+C:\obs-dev\stub.c(17): error C2146: syntax error: missing ';' before identifier 'bool'
 ```
 
-**Solution Applied:**
-- ✅ **Self-contained stub code** - Removed external header dependencies
-- ✅ **Type definitions** - Added basic types (bool, uint64_t, size_t) directly in stub code
-- ✅ **Windows SDK paths** - Added proper include paths for Windows Kits
-- ✅ **Fallback approach** - Maintains binary library creation if compilation fails
+**Solutions Applied:**
+- ✅ **Removed size_t redefinition** - Already defined in compiler environment
+- ✅ **Fixed string escaping** - Replaced problematic `""` returns with `0` (NULL)
+- ✅ **Simplified type usage** - Used `unsigned int` instead of `size_t` for compatibility
+- ✅ **Self-contained approach** - No external headers or complex string escaping
 
 ### **Solution Applied (Commit ea964c2):**
 ✅ **Comprehensive stub libraries created** with all 57+ missing OBS API functions:

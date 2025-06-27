@@ -52,7 +52,6 @@ jobs:
             "// Define basic types to avoid needing external headers`n" +
             "typedef unsigned char bool;`n" +
             "typedef unsigned long long uint64_t;`n" +
-            "typedef unsigned int size_t;`n" +
             "#define true 1`n" +
             "#define false 0`n`n" +
             "// Data API stubs`n" +
@@ -62,15 +61,15 @@ jobs:
             "void obs_data_set_string(void* data, const char* name, const char* val) {}`n" +
             "void obs_data_set_bool(void* data, const char* name, bool val) {}`n" +
             "void obs_data_set_int(void* data, const char* name, long long val) {}`n" +
-            "const char* obs_data_get_string(void* data, const char* name) { return `"`"`"; }`n" +
+            "const char* obs_data_get_string(void* data, const char* name) { return 0; }`n" +
             "bool obs_data_get_bool(void* data, const char* name) { return false; }`n" +
             "long long obs_data_get_int(void* data, const char* name) { return 0; }`n" +
             "void obs_data_save_json_safe(void* data, const char* file, const char* temp, const char* backup) {}`n`n" +
             "// Data Array API stubs`n" +
             "void* obs_data_array_create(void) { return (void*)0x1; }`n" +
             "void obs_data_array_release(void* array) {}`n" +
-            "size_t obs_data_array_count(void* array) { return 0; }`n" +
-            "void* obs_data_array_item(void* array, size_t idx) { return (void*)0x1; }`n" +
+            "unsigned int obs_data_array_count(void* array) { return 0; }`n" +
+            "void* obs_data_array_item(void* array, unsigned int idx) { return (void*)0x1; }`n" +
             "void obs_data_array_push_back(void* array, void* obj) {}`n" +
             "void obs_data_set_array(void* data, const char* name, void* array) {}`n" +
             "void* obs_data_get_array(void* data, const char* name) { return (void*)0x1; }`n`n" +
@@ -79,13 +78,13 @@ jobs:
             "void obs_output_release(void* output) {}`n" +
             "void obs_output_set_service(void* output, void* service) {}`n" +
             "void obs_output_set_video_encoder(void* output, void* encoder) {}`n" +
-            "void obs_output_set_audio_encoder(void* output, void* encoder, size_t idx) {}`n" +
+            "void obs_output_set_audio_encoder(void* output, void* encoder, unsigned int idx) {}`n" +
             "bool obs_output_start(void* output) { return true; }`n" +
             "void obs_output_stop(void* output) {}`n" +
             "bool obs_output_active(void* output) { return false; }`n" +
             "void* obs_output_get_signal_handler(void* output) { return (void*)0x1; }`n" +
             "void* obs_output_get_video_encoder(void* output) { return (void*)0x1; }`n" +
-            "void* obs_output_get_audio_encoder(void* output, size_t idx) { return (void*)0x1; }`n" +
+            "void* obs_output_get_audio_encoder(void* output, unsigned int idx) { return (void*)0x1; }`n" +
             "int obs_output_get_frames_dropped(void* output) { return 0; }`n" +
             "uint64_t obs_output_get_total_bytes(void* output) { return 0; }`n" +
             "float obs_output_get_congestion(void* output) { return 0.0f; }`n`n" +
@@ -95,7 +94,7 @@ jobs:
             "// Encoder API stubs`n" +
             "void* obs_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }`n" +
             "void* obs_video_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }`n" +
-            "void* obs_audio_encoder_create(const char* id, const char* name, void* settings, size_t track, void* hotkey) { return (void*)0x1; }`n" +
+            "void* obs_audio_encoder_create(const char* id, const char* name, void* settings, unsigned int track, void* hotkey) { return (void*)0x1; }`n" +
             "void obs_encoder_release(void* encoder) {}`n" +
             "void obs_encoder_set_video(void* encoder, void* video) {}`n" +
             "void obs_encoder_set_audio(void* encoder, void* audio) {}`n`n" +
@@ -109,7 +108,7 @@ jobs:
             "void signal_handler_disconnect(void* handler, const char* signal, void* callback, void* data) {}`n`n" +
             "// Calldata stubs`n" +
             "long long calldata_int(const void* data, const char* name) { return 0; }`n" +
-            "const char* calldata_string(const void* data, const char* name) { return `"`"`"; }`n`n" +
+            "const char* calldata_string(const void* data, const char* name) { return 0; }`n`n" +
             "// Memory management stubs`n" +
             "void bfree(void* ptr) {}`n`n" +
             "// Logging stub`n" +
@@ -117,7 +116,7 @@ jobs:
             "// Frontend event stubs`n" +
             "void obs_frontend_add_event_callback(void* callback, void* private_data) {}`n" +
             "void obs_frontend_remove_event_callback(void* callback, void* private_data) {}`n" +
-            "char* obs_frontend_get_global_config_path(void) { return `"`"`"; }`n" +
+            "char* obs_frontend_get_global_config_path(void) { return 0; }`n" +
             "void* obs_frontend_get_streaming_output(void) { return (void*)0x1; }`n`n" +
             "// Properties API stubs`n" +
             "void* obs_properties_create(void) { return (void*)0x1; }`n" +
@@ -138,14 +137,8 @@ jobs:
             Write-Host "Using compiler: $($clPath.FullName)" -ForegroundColor Cyan
             
             try {
-              # Compile stub object file with proper include paths
-              $windowsSDKPath = "${env:ProgramFiles(x86)}\Windows Kits\10\Include"
-              $latestSDK = Get-ChildItem -Path $windowsSDKPath -Directory | Sort-Object Name -Descending | Select-Object -First 1
-              $includeArgs = ""
-              if ($latestSDK) {
-                $includeArgs = "/I`"$($latestSDK.FullName)\ucrt`" /I`"$($latestSDK.FullName)\shared`" /I`"$($latestSDK.FullName)\um`""
-              }
-              $compileOutput = & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" $includeArgs.Split(' ') 2>&1
+              # Compile stub object file (self-contained, no external includes needed)
+              $compileOutput = & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1
               Write-Host "Compile output: $compileOutput" -ForegroundColor Gray
               
               if (Test-Path "C:\obs-dev\stub.obj") {
