@@ -39,6 +39,41 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1.1
 
+      - name: Create Proper Stub Libraries
+        run: |
+          Write-Host "=== Creating Proper Stub Libraries ===" -ForegroundColor Green
+          
+          # Create stub source file
+          $stubCode = "void stub_function() {}"
+          $stubCode | Out-File -FilePath "C:\obs-dev\stub.c" -Encoding ASCII
+          
+          # Find and use cl.exe from Visual Studio
+          $vsPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC"
+          $clPath = Get-ChildItem -Path "$vsPath\*\bin\HostX86\x64\cl.exe" | Select-Object -First 1
+          $libPath = Get-ChildItem -Path "$vsPath\*\bin\HostX86\x64\lib.exe" | Select-Object -First 1
+          
+          if ($clPath -and $libPath) {
+            Write-Host "Using compiler: $($clPath.FullName)" -ForegroundColor Cyan
+            
+            # Compile stub object file
+            & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1 | Write-Host
+            
+            if (Test-Path "C:\obs-dev\stub.obj") {
+              # Create libraries from object file
+              & $libPath.FullName /OUT:"C:\obs-dev\lib\obs.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
+              & $libPath.FullName /OUT:"C:\obs-dev\lib\obs-frontend-api.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
+              Write-Host "✅ Proper stub libraries created" -ForegroundColor Green
+            } else {
+              Write-Host "⚠️ Using placeholder libraries (compilation failed)" -ForegroundColor Yellow
+            }
+            
+            # Clean up
+            Remove-Item "C:\obs-dev\stub.c" -ErrorAction SilentlyContinue
+            Remove-Item "C:\obs-dev\stub.obj" -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "⚠️ Compiler not found, using placeholder libraries" -ForegroundColor Yellow
+          }
+
       - name: Create Minimal OBS Headers
         run: |
           Write-Host "=== Creating Minimal OBS Headers ===" -ForegroundColor Green
@@ -58,22 +93,10 @@ jobs:
           $obsHeader | Out-File -FilePath "C:\obs-dev\include\obs.h" -Encoding UTF8
           $obsFrontendHeader | Out-File -FilePath "C:\obs-dev\include\obs-frontend-api.h" -Encoding UTF8
           
-          # Create stub libraries for linking
-          Write-Host "Creating stub library files..." -ForegroundColor Yellow
-          
-          $stubCode = "void stub_function() {}"
-          $stubCode | Out-File -FilePath "C:\obs-dev\stub.c" -Encoding ASCII
-          
-          # Compile stub object file
-          cl.exe /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1 | Write-Host
-          
-          # Create libraries from object file
-          lib.exe /OUT:"C:\obs-dev\lib\obs.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
-          lib.exe /OUT:"C:\obs-dev\lib\obs-frontend-api.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
-          
-          # Clean up
-          Remove-Item "C:\obs-dev\stub.c" -ErrorAction SilentlyContinue
-          Remove-Item "C:\obs-dev\stub.obj" -ErrorAction SilentlyContinue
+          # Create empty stub libraries (will be created properly after MSBuild setup)
+          Write-Host "Creating placeholder library files..." -ForegroundColor Yellow
+          "STUB" | Out-File -FilePath "C:\obs-dev\lib\obs.lib" -Encoding ASCII
+          "STUB" | Out-File -FilePath "C:\obs-dev\lib\obs-frontend-api.lib" -Encoding ASCII
           
           Write-Host "✅ Complete OBS headers and libraries created" -ForegroundColor Green
 
