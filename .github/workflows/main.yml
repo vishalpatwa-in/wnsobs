@@ -31,13 +31,18 @@ jobs:
 
       - name: Check code formatting
         run: |
-          find src -name '*.cpp' -o -name '*.h' | xargs clang-format-13 --dry-run --Werror
-          echo "✅ Code formatting check passed"
+          echo "Checking C++ code formatting..."
+          # Only check if files exist
+          if find src -name '*.cpp' -o -name '*.h' | head -1 | read; then
+            find src -name '*.cpp' -o -name '*.h' | xargs clang-format-13 --dry-run --Werror --style=file
+            echo "✅ Code formatting check passed"
+          else
+            echo "⚠️ No C++ files found to check"
+          fi
 
   windows_build:
     name: 02 - Windows
     runs-on: windows-2022
-    needs: clang_check
     if: always()
     outputs:
       artifacts: ${{ steps.package.outputs.artifacts }}
@@ -55,147 +60,181 @@ jobs:
 
       - name: Setup OBS Development Environment
         run: |
-          # Download OBS Studio development headers
-          $obsVersion = "30.0.2"
-          $obsUrl = "https://github.com/obsproject/obs-studio/releases/download/$obsVersion/obs-studio-$obsVersion-full-x64.zip"
-          
-          Write-Host "📥 Downloading OBS Studio $obsVersion..."
-          Invoke-WebRequest -Uri $obsUrl -OutFile "obs-studio.zip" -TimeoutSec 300
-          
-          Write-Host "📂 Extracting OBS Studio..."
-          Expand-Archive -Path "obs-studio.zip" -DestinationPath "obs-temp" -Force
-          
-          # Create development directory structure
-          New-Item -ItemType Directory -Path "C:\obs-dev\include" -Force
-          New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force
-          New-Item -ItemType Directory -Path "C:\obs-dev\bin" -Force
-          
-          # Find the actual extracted directory (it might be nested)
-          $extractedDir = Get-ChildItem -Path "obs-temp" -Directory | Select-Object -First 1
-          if ($extractedDir) {
-            $obsRoot = $extractedDir.FullName
-            Write-Host "🔍 Found OBS directory: $obsRoot"
+          try {
+            # Download OBS Studio development headers from GitHub releases
+            $obsVersion = "30.0.2"
+            $obsUrl = "https://github.com/obsproject/obs-studio/releases/download/$obsVersion/obs-studio-$obsVersion-full-x64.zip"
+            
+            Write-Host "📥 Downloading OBS Studio $obsVersion..." -ForegroundColor Green
+            Invoke-WebRequest -Uri $obsUrl -OutFile "obs-studio.zip" -TimeoutSec 600 -UseBasicParsing
+            
+            Write-Host "📂 Extracting OBS Studio..." -ForegroundColor Green
+            Expand-Archive -Path "obs-studio.zip" -DestinationPath "obs-temp" -Force
+            
+            # Create development directory structure
+            New-Item -ItemType Directory -Path "C:\obs-dev\include" -Force | Out-Null
+            New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
+            New-Item -ItemType Directory -Path "C:\obs-dev\bin" -Force | Out-Null
+            
+            # Find extracted directory
+            $extractedDirs = Get-ChildItem -Path "obs-temp" -Directory
+            if ($extractedDirs.Count -eq 0) {
+              throw "No directories found in extracted OBS archive"
+            }
+            
+            $obsRoot = $extractedDirs[0].FullName
+            Write-Host "🔍 Found OBS directory: $obsRoot" -ForegroundColor Yellow
             
             # Copy include files
-            if (Test-Path "$obsRoot\include") {
-              Copy-Item -Path "$obsRoot\include\*" -Destination "C:\obs-dev\include" -Recurse -Force
-              Write-Host "✅ Copied include files"
-            }
-            
-            # Copy libraries from bin/64bit
-            if (Test-Path "$obsRoot\bin\64bit") {
-              Copy-Item -Path "$obsRoot\bin\64bit\*.lib" -Destination "C:\obs-dev\lib" -Force
-              Copy-Item -Path "$obsRoot\bin\64bit\*.dll" -Destination "C:\obs-dev\bin" -Force
-              Write-Host "✅ Copied library files"
-            }
-            
-            # Also check obs-plugins for additional libs
-            if (Test-Path "$obsRoot\obs-plugins\64bit") {
-              Copy-Item -Path "$obsRoot\obs-plugins\64bit\*.lib" -Destination "C:\obs-dev\lib" -Force -ErrorAction SilentlyContinue
-            }
-          }
-          
-          # Verify critical files exist
-          $criticalFiles = @(
-            "C:\obs-dev\include\obs-module.h",
-            "C:\obs-dev\include\obs-frontend-api.h",
-            "C:\obs-dev\include\obs.h"
-          )
-          
-          foreach ($file in $criticalFiles) {
-            if (Test-Path $file) {
-              Write-Host "✅ Found: $file"
+            $includeSource = "$obsRoot\include"
+            if (Test-Path $includeSource) {
+              Copy-Item -Path "$includeSource\*" -Destination "C:\obs-dev\include" -Recurse -Force
+              Write-Host "✅ Copied include files" -ForegroundColor Green
             } else {
-              Write-Host "❌ Missing: $file"
-              # Try to find the file in subdirectories
-              $found = Get-ChildItem -Path "C:\obs-dev\include" -Name (Split-Path $file -Leaf) -Recurse -ErrorAction SilentlyContinue
-              if ($found) {
-                Write-Host "📍 Found in: $($found[0])"
+              throw "Include directory not found at $includeSource"
+            }
+            
+            # Copy libraries
+            $libPaths = @("$obsRoot\bin\64bit", "$obsRoot\obs-plugins\64bit")
+            foreach ($libPath in $libPaths) {
+              if (Test-Path $libPath) {
+                Copy-Item -Path "$libPath\*.lib" -Destination "C:\obs-dev\lib" -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$libPath\*.dll" -Destination "C:\obs-dev\bin" -Force -ErrorAction SilentlyContinue
+                Write-Host "✅ Copied libraries from $libPath" -ForegroundColor Green
               }
             }
+            
+            # Verify critical files
+            $criticalFiles = @(
+              "C:\obs-dev\include\obs-module.h",
+              "C:\obs-dev\include\obs-frontend-api.h",
+              "C:\obs-dev\include\obs.h"
+            )
+            
+            $missingFiles = @()
+            foreach ($file in $criticalFiles) {
+              if (Test-Path $file) {
+                Write-Host "✅ Found: $file" -ForegroundColor Green
+              } else {
+                $missingFiles += $file
+                Write-Host "❌ Missing: $file" -ForegroundColor Red
+              }
+            }
+            
+            if ($missingFiles.Count -gt 0) {
+              Write-Host "🔍 Searching for missing files in subdirectories..." -ForegroundColor Yellow
+              foreach ($missingFile in $missingFiles) {
+                $fileName = Split-Path $missingFile -Leaf
+                $found = Get-ChildItem -Path "C:\obs-dev\include" -Name $fileName -Recurse -ErrorAction SilentlyContinue
+                if ($found) {
+                  Write-Host "📍 Found $fileName in: $($found -join ', ')" -ForegroundColor Yellow
+                }
+              }
+            }
+            
+            Write-Host "🚀 OBS development environment setup complete" -ForegroundColor Green
           }
-          
-          Write-Host "🚀 OBS development environment setup complete"
+          catch {
+            Write-Error "❌ Failed to setup OBS environment: $_"
+            exit 1
+          }
 
       - name: Build Plugin
         run: |
-          Write-Host "🔨 Building OBS Multistream Plugin..."
-          
-          # Ensure proper platform targeting
-          $env:PLATFORM = "x64"
-          $env:Configuration = "Release"
-          
-          # Build the solution
-          MSBuild.exe obs-multistream.sln `
-            /p:Configuration=Release `
-            /p:Platform=x64 `
-            /p:PlatformToolset=v143 `
-            /p:WindowsTargetPlatformVersion=10.0 `
-            /verbosity:minimal `
-            /maxcpucount
-          
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ Build failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+          try {
+            Write-Host "🔨 Building OBS Multistream Plugin..." -ForegroundColor Green
+            
+            # Build the solution with verbose output for debugging
+            $buildArgs = @(
+              "obs-multistream.sln"
+              "/p:Configuration=Release"
+              "/p:Platform=x64"
+              "/p:PlatformToolset=v143"
+              "/p:WindowsTargetPlatformVersion=10.0"
+              "/verbosity:normal"
+              "/maxcpucount"
+            )
+            
+            $process = Start-Process -FilePath "MSBuild.exe" -ArgumentList $buildArgs -Wait -PassThru -NoNewWindow
+            
+            if ($process.ExitCode -ne 0) {
+              throw "Build failed with exit code $($process.ExitCode)"
+            }
+            
+            Write-Host "✅ Build completed successfully" -ForegroundColor Green
           }
-          
-          Write-Host "✅ Build completed successfully"
+          catch {
+            Write-Error "❌ Build failed: $_"
+            exit 1
+          }
 
       - name: Verify Build Output
         run: |
           $buildPaths = @(
-            "bin\Release",
-            "bin\x64\Release", 
+            "bin\x64\Release",
+            "bin\Release", 
             "x64\Release",
-            "Release"
+            "Release",
+            ".\Release",
+            ".\x64\Release"
           )
           
           $dllFound = $false
+          $actualDllPath = ""
+          
+          Write-Host "🔍 Searching for plugin DLL..." -ForegroundColor Yellow
+          
           foreach ($path in $buildPaths) {
             $dllPath = "$path\${{ env.PLUGIN_NAME }}.dll"
             if (Test-Path $dllPath) {
-              Write-Host "✅ Found plugin DLL at: $dllPath"
-              $script:actualDllPath = $dllPath
+              Write-Host "✅ Found plugin DLL at: $dllPath" -ForegroundColor Green
+              $actualDllPath = $dllPath
               $dllFound = $true
               break
+            } else {
+              Write-Host "⚠️ Not found: $dllPath" -ForegroundColor Yellow
             }
           }
           
           if (-not $dllFound) {
-            Write-Host "❌ Plugin DLL not found in expected locations"
-            Write-Host "📁 Searching for DLL files..."
-            Get-ChildItem -Recurse -Filter "*.dll" | ForEach-Object {
-              Write-Host "Found: $($_.FullName)"
+            Write-Host "❌ Plugin DLL not found in expected locations" -ForegroundColor Red
+            Write-Host "📁 Searching entire directory for DLL files..." -ForegroundColor Yellow
+            Get-ChildItem -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
+              Write-Host "Found DLL: $($_.FullName)" -ForegroundColor Cyan
             }
-            exit 1
+            throw "Plugin DLL not found"
           }
           
-          # Set output variable for packaging
-          echo "DLL_PATH=$script:actualDllPath" >> $env:GITHUB_ENV
+          # Set environment variable for packaging
+          echo "DLL_PATH=$actualDllPath" >> $env:GITHUB_ENV
+          Write-Host "📝 Set DLL_PATH=$actualDllPath" -ForegroundColor Green
 
       - name: Package Plugin
         id: package
         run: |
-          $pluginName = "${{ env.PLUGIN_NAME }}"
-          $packagePath = "package"
-          $dllPath = $env:DLL_PATH
-          
-          # Create package directory structure
-          New-Item -ItemType Directory -Path "$packagePath\obs-plugins\64bit" -Force
-          New-Item -ItemType Directory -Path "$packagePath\data\obs-plugins\$pluginName" -Force
-          
-          # Copy plugin DLL
-          Copy-Item -Path $dllPath -Destination "$packagePath\obs-plugins\64bit\" -Force
-          Write-Host "✅ Plugin DLL packaged successfully"
-          
-          # Create installation README
-          @"
+          try {
+            $pluginName = "${{ env.PLUGIN_NAME }}"
+            $packagePath = "package"
+            $dllPath = $env:DLL_PATH
+            
+            Write-Host "📦 Creating package..." -ForegroundColor Green
+            
+            # Create package directory structure
+            New-Item -ItemType Directory -Path "$packagePath\obs-plugins\64bit" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$packagePath\data\obs-plugins\$pluginName" -Force | Out-Null
+            
+            # Copy plugin DLL
+            Copy-Item -Path $dllPath -Destination "$packagePath\obs-plugins\64bit\" -Force
+            Write-Host "✅ Plugin DLL packaged: $dllPath" -ForegroundColor Green
+            
+            # Create installation README
+            $installContent = @"
 # OBS Multistream Plugin Installation
 
 ## Installation Steps:
 1. Close OBS Studio completely
 2. Copy the contents of this package to your OBS Studio installation directory:
-   - Copy `obs-plugins\64bit\$pluginName.dll` to `[OBS Installation]\obs-plugins\64bit\`
+   - Copy ``obs-plugins\64bit\$pluginName.dll`` to ``[OBS Installation]\obs-plugins\64bit\``
 3. Restart OBS Studio
 4. The Multistream dock will appear in View → Docks → Multistream
 
@@ -212,16 +251,27 @@ jobs:
 - TikTok Live
 - Custom RTMP servers
 
+## Requirements:
+- Windows 11 (64-bit)
+- OBS Studio 30.0+
+
 Enjoy multistreaming! 🚀
-"@ | Out-File -FilePath "$packagePath\INSTALL.txt" -Encoding UTF8
-          
-          # Create ZIP package
-          $version = if ($env:GITHUB_REF -match 'refs/tags/(.*)') { $matches[1] } else { "dev" }
-          $zipName = "$pluginName-$version-windows-x64.zip"
-          Compress-Archive -Path "$packagePath\*" -DestinationPath $zipName -Force
-          
-          Write-Host "📦 Package created: $zipName"
-          echo "artifacts=$zipName" >> $env:GITHUB_OUTPUT
+"@
+            
+            $installContent | Out-File -FilePath "$packagePath\INSTALL.txt" -Encoding UTF8
+            
+            # Create ZIP package
+            $version = if ($env:GITHUB_REF -match 'refs/tags/(.*)') { $matches[1] } else { "dev" }
+            $zipName = "$pluginName-$version-windows-x64.zip"
+            Compress-Archive -Path "$packagePath\*" -DestinationPath $zipName -Force
+            
+            Write-Host "📦 Package created: $zipName" -ForegroundColor Green
+            echo "artifacts=$zipName" >> $env:GITHUB_OUTPUT
+          }
+          catch {
+            Write-Error "❌ Packaging failed: $_"
+            exit 1
+          }
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3

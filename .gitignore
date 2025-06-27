@@ -9,6 +9,7 @@ package/
 *.pdb
 *.ilk
 *.exp
+*.cursorrules
 
 # Visual Studio files
 .vs/
