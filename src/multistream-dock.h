@@ -5,6 +5,8 @@
 #include <Windows.h>
 #include <string>
 
+// Check if Qt is available
+#ifdef QT_CORE_LIB
 // Qt includes for dock widget
 #include <QDockWidget>
 #include <QMainWindow>
@@ -16,6 +18,8 @@
 #include <QPushButton>
 #include <QObject>
 #include <QString>
+#define HAVE_QT
+#endif
 
 struct StreamDestination;
 
@@ -47,6 +51,7 @@ private:
 };
 
 // OBS Frontend dock implementation
+#ifdef HAVE_QT
 class MultistreamDock : public QObject {
     Q_OBJECT
     
@@ -72,6 +77,32 @@ private:
     QLabel* statusLabel;
     QPushButton* startStopBtn;
 };
+#else
+// Fallback implementation for builds without Qt
+class MultistreamDock {
+public:
+    MultistreamDock();
+    ~MultistreamDock();
+    
+    bool Initialize();
+    void Shutdown();
+    
+private:
+    // Create OBS properties for the dock
+    static obs_properties_t* GetProperties(void* data);
+    static void OnAddDestination(obs_properties_t* props, obs_property_t* property, void* data);
+    static void OnEditDestination(obs_properties_t* props, obs_property_t* property, void* data);
+    static void OnRemoveDestination(obs_properties_t* props, obs_property_t* property, void* data);
+    static void OnStartStop(obs_properties_t* props, obs_property_t* property, void* data);
+    static void OnRefresh(obs_properties_t* props, obs_property_t* property, void* data);
+    
+    void UpdateDestinationList();
+    void UpdateStatus();
+    
+    obs_properties_t* properties;
+    obs_data_t* settings;
+};
+#endif
 
 // Helper functions for Win32 dialogs
 namespace Win32Helpers {

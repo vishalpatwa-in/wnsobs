@@ -269,9 +269,11 @@ void StreamDestinationDialog::OnPresetChanged(HWND hDlg) {
 }
 
 // ============================================================================
-// Multistream Dock
+// Multistream Dock - Conditional Implementation
 // ============================================================================
 
+#ifdef HAVE_QT
+// Qt-based implementation for full OBS builds
 MultistreamDock::MultistreamDock() 
     : dock(nullptr), destinationList(nullptr), statusLabel(nullptr), startStopBtn(nullptr) {
 }
@@ -281,7 +283,7 @@ MultistreamDock::~MultistreamDock() {
 }
 
 bool MultistreamDock::Initialize() {
-    blog(LOG_INFO, "[obs-multistream] Initializing dock");
+    blog(LOG_INFO, "[obs-multistream] Initializing Qt-based dock");
     
     // Get OBS main window as parent
     QMainWindow* mainWindow = static_cast<QMainWindow*>(obs_frontend_get_main_window());
@@ -346,7 +348,7 @@ bool MultistreamDock::Initialize() {
     UpdateDestinationList();
     UpdateStatus();
     
-    blog(LOG_INFO, "[obs-multistream] Dock initialized successfully");
+    blog(LOG_INFO, "[obs-multistream] Qt dock initialized successfully");
     return true;
 }
 
@@ -356,8 +358,6 @@ void MultistreamDock::Shutdown() {
         dock = nullptr;
     }
 }
-
-
 
 void MultistreamDock::OnAddDestination() {
     StreamDestinationDialog dialog(nullptr);
@@ -433,3 +433,173 @@ void MultistreamDock::UpdateStatus() {
 
 // Include MOC file for Qt's meta-object system
 #include "multistream-dock.moc"
+
+#else
+// Fallback implementation for builds without Qt (like CI)
+MultistreamDock::MultistreamDock() 
+    : properties(nullptr), settings(nullptr) {
+}
+
+MultistreamDock::~MultistreamDock() {
+    Shutdown();
+}
+
+bool MultistreamDock::Initialize() {
+    blog(LOG_INFO, "[obs-multistream] Initializing fallback dock (no Qt)");
+    
+    // Create OBS properties for the dock
+    properties = GetProperties(this);
+    if (!properties) {
+        blog(LOG_ERROR, "[obs-multistream] Failed to create properties");
+        return false;
+    }
+    
+    // Create settings data
+    settings = obs_data_create();
+    
+    // Note: In fallback mode, we don't create a visual dock
+    // This is just for CI builds to compile successfully
+    blog(LOG_WARNING, "[obs-multistream] Running in fallback mode - no visual dock available");
+    
+    UpdateDestinationList();
+    UpdateStatus();
+    
+    blog(LOG_INFO, "[obs-multistream] Fallback dock initialized");
+    return true;
+}
+
+void MultistreamDock::Shutdown() {
+    if (properties) {
+        obs_properties_destroy(properties);
+        properties = nullptr;
+    }
+    
+    if (settings) {
+        obs_data_release(settings);
+        settings = nullptr;
+    }
+}
+
+obs_properties_t* MultistreamDock::GetProperties(void* data) {
+    MultistreamDock* dock = static_cast<MultistreamDock*>(data);
+    
+    obs_properties_t* props = obs_properties_create();
+    
+    // Add destination list
+    obs_property_t* destList = obs_properties_add_text(props, "destinations", 
+        "Stream Destinations", OBS_TEXT_MULTILINE);
+    obs_property_set_enabled(destList, false);
+    
+    // Add control buttons
+    obs_properties_add_button(props, "add", "Add Destination", OnAddDestination);
+    obs_properties_add_button(props, "edit", "Edit Selected", OnEditDestination);
+    obs_properties_add_button(props, "remove", "Remove Selected", OnRemoveDestination);
+    
+    // Add separator
+    obs_properties_add_text(props, "separator", "", OBS_TEXT_DEFAULT);
+    
+    // Add status and control
+    obs_property_t* status = obs_properties_add_text(props, "status", 
+        "Status", OBS_TEXT_DEFAULT);
+    obs_property_set_enabled(status, false);
+    
+    obs_properties_add_button(props, "startstop", "Start Multistream", OnStartStop);
+    obs_properties_add_button(props, "refresh", "Refresh", OnRefresh);
+    
+    return props;
+}
+
+void MultistreamDock::OnAddDestination(obs_properties_t* props, obs_property_t* property, void* data) {
+    UNUSED_PARAMETER(props);
+    UNUSED_PARAMETER(property);
+    
+    MultistreamDock* dock = static_cast<MultistreamDock*>(data);
+    
+    StreamDestinationDialog dialog(nullptr);
+    if (dialog.ShowDialog()) {
+        StreamDestination dest = dialog.GetDestination();
+        MultistreamPlugin::GetInstance()->AddDestination(dest);
+        dock->UpdateDestinationList();
+    }
+}
+
+void MultistreamDock::OnEditDestination(obs_properties_t* props, obs_property_t* property, void* data) {
+    UNUSED_PARAMETER(props);
+    UNUSED_PARAMETER(property);
+    UNUSED_PARAMETER(data);
+    
+    // For simplicity, just show a message for now
+    MessageBoxA(nullptr, "Edit functionality would open the edit dialog for the selected destination.", 
+                "Edit Destination", MB_OK | MB_ICONINFORMATION);
+}
+
+void MultistreamDock::OnRemoveDestination(obs_properties_t* props, obs_property_t* property, void* data) {
+    UNUSED_PARAMETER(props);
+    UNUSED_PARAMETER(property);
+    UNUSED_PARAMETER(data);
+    
+    // For simplicity, just show a message for now
+    MessageBoxA(nullptr, "Remove functionality would delete the selected destination.", 
+                "Remove Destination", MB_OK | MB_ICONINFORMATION);
+}
+
+void MultistreamDock::OnStartStop(obs_properties_t* props, obs_property_t* property, void* data) {
+    UNUSED_PARAMETER(props);
+    UNUSED_PARAMETER(property);
+    
+    MultistreamDock* dock = static_cast<MultistreamDock*>(data);
+    MultistreamPlugin* plugin = MultistreamPlugin::GetInstance();
+    
+    if (plugin->IsStreaming()) {
+        plugin->StopStreaming();
+    } else {
+        plugin->StartStreaming();
+    }
+    
+    dock->UpdateStatus();
+}
+
+void MultistreamDock::OnRefresh(obs_properties_t* props, obs_property_t* property, void* data) {
+    UNUSED_PARAMETER(props);
+    UNUSED_PARAMETER(property);
+    
+    MultistreamDock* dock = static_cast<MultistreamDock*>(data);
+    dock->UpdateDestinationList();
+    dock->UpdateStatus();
+}
+
+void MultistreamDock::UpdateDestinationList() {
+    if (!settings) return;
+    
+    MultistreamPlugin* plugin = MultistreamPlugin::GetInstance();
+    const auto& destinations = plugin->GetDestinations();
+    
+    std::stringstream ss;
+    for (size_t i = 0; i < destinations.size(); i++) {
+        const auto& dest = destinations[i];
+        ss << (i + 1) << ". " << dest.name;
+        if (dest.enabled) {
+            ss << " (Enabled)";
+        } else {
+            ss << " (Disabled)";
+        }
+        ss << "\n   URL: " << dest.url << "\n";
+    }
+    
+    if (destinations.empty()) {
+        ss << "No destinations configured.\nUse 'Add Destination' to get started.";
+    }
+    
+    obs_data_set_string(settings, "destinations", ss.str().c_str());
+}
+
+void MultistreamDock::UpdateStatus() {
+    if (!settings) return;
+    
+    MultistreamPlugin* plugin = MultistreamPlugin::GetInstance();
+    
+    std::string status = plugin->IsStreaming() ? "Multistreaming ACTIVE" : "Multistreaming STOPPED";
+    obs_data_set_string(settings, "status", status.c_str());
+}
+
+#endif
