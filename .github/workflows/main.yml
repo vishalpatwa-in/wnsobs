@@ -47,8 +47,94 @@ jobs:
           New-Item -ItemType Directory -Path "C:\obs-dev" -Force | Out-Null
           New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
           
-          # Create stub source file
-          $stubCode = "void stub_function() {}"
+          # Create comprehensive stub source file with all 57 missing functions
+          $stubCode = @"
+// OBS Core API Stubs
+#include <stdint.h>
+#include <stdbool.h>
+
+// Data API stubs
+void* obs_data_create(void) { return (void*)0x1; }
+void obs_data_release(void* data) {}
+void* obs_data_create_from_json_file(const char* file) { return (void*)0x1; }
+void obs_data_set_string(void* data, const char* name, const char* val) {}
+void obs_data_set_bool(void* data, const char* name, bool val) {}
+void obs_data_set_int(void* data, const char* name, long long val) {}
+const char* obs_data_get_string(void* data, const char* name) { return ""; }
+bool obs_data_get_bool(void* data, const char* name) { return false; }
+long long obs_data_get_int(void* data, const char* name) { return 0; }
+void obs_data_save_json_safe(void* data, const char* file, const char* temp, const char* backup) {}
+
+// Data Array API stubs
+void* obs_data_array_create(void) { return (void*)0x1; }
+void obs_data_array_release(void* array) {}
+size_t obs_data_array_count(void* array) { return 0; }
+void* obs_data_array_item(void* array, size_t idx) { return (void*)0x1; }
+void obs_data_array_push_back(void* array, void* obj) {}
+void obs_data_set_array(void* data, const char* name, void* array) {}
+void* obs_data_get_array(void* data, const char* name) { return (void*)0x1; }
+
+// Output API stubs
+void* obs_output_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
+void obs_output_release(void* output) {}
+void obs_output_set_service(void* output, void* service) {}
+void obs_output_set_video_encoder(void* output, void* encoder) {}
+void obs_output_set_audio_encoder(void* output, void* encoder, size_t idx) {}
+bool obs_output_start(void* output) { return true; }
+void obs_output_stop(void* output) {}
+bool obs_output_active(void* output) { return false; }
+void* obs_output_get_signal_handler(void* output) { return (void*)0x1; }
+void* obs_output_get_video_encoder(void* output) { return (void*)0x1; }
+void* obs_output_get_audio_encoder(void* output, size_t idx) { return (void*)0x1; }
+int obs_output_get_frames_dropped(void* output) { return 0; }
+uint64_t obs_output_get_total_bytes(void* output) { return 0; }
+float obs_output_get_congestion(void* output) { return 0.0f; }
+
+// Service API stubs
+void* obs_service_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
+void obs_service_release(void* service) {}
+
+// Encoder API stubs
+void* obs_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
+void* obs_video_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
+void* obs_audio_encoder_create(const char* id, const char* name, void* settings, size_t track, void* hotkey) { return (void*)0x1; }
+void obs_encoder_release(void* encoder) {}
+void obs_encoder_set_video(void* encoder, void* video) {}
+void obs_encoder_set_audio(void* encoder, void* audio) {}
+
+// Video/Audio system stubs
+void* obs_get_video(void) { return (void*)0x1; }
+void* obs_get_audio(void) { return (void*)0x1; }
+bool obs_get_video_info(void* ovi) { return true; }
+bool obs_get_audio_info(void* oai) { return true; }
+
+// Signal handler stubs
+void signal_handler_connect(void* handler, const char* signal, void* callback, void* data) {}
+void signal_handler_disconnect(void* handler, const char* signal, void* callback, void* data) {}
+
+// Calldata stubs
+long long calldata_int(const void* data, const char* name) { return 0; }
+const char* calldata_string(const void* data, const char* name) { return ""; }
+
+// Memory management stubs
+void bfree(void* ptr) {}
+
+// Logging stub
+void blog(int log_level, const char* format, ...) {}
+
+// Frontend event stubs
+void obs_frontend_add_event_callback(void* callback, void* private_data) {}
+void obs_frontend_remove_event_callback(void* callback, void* private_data) {}
+char* obs_frontend_get_global_config_path(void) { return ""; }
+void* obs_frontend_get_streaming_output(void) { return (void*)0x1; }
+
+// Properties API stubs
+void* obs_properties_create(void) { return (void*)0x1; }
+void obs_properties_destroy(void* props) {}
+void* obs_properties_add_text(void* props, const char* name, const char* description, int type) { return (void*)0x1; }
+void* obs_properties_add_button(void* props, const char* name, const char* text, void* callback) { return (void*)0x1; }
+void obs_property_set_enabled(void* prop, bool enabled) {}
+"@
           $stubCode | Out-File -FilePath "C:\obs-dev\stub.c" -Encoding ASCII
           
           # Find and use cl.exe from Visual Studio
@@ -67,11 +153,12 @@ jobs:
               Write-Host "Compile output: $compileOutput" -ForegroundColor Gray
               
               if (Test-Path "C:\obs-dev\stub.obj") {
-                # Create libraries from object file
+                # Create comprehensive libraries from object file with all function stubs
+                Write-Host "Creating comprehensive stub libraries..." -ForegroundColor Cyan
                 $libOutput1 = & $libPath.FullName /OUT:"C:\obs-dev\lib\obs.lib" "C:\obs-dev\stub.obj" 2>&1
                 $libOutput2 = & $libPath.FullName /OUT:"C:\obs-dev\lib\obs-frontend-api.lib" "C:\obs-dev\stub.obj" 2>&1
-                Write-Host "Library creation output: $libOutput1" -ForegroundColor Gray
-                Write-Host "Library creation output: $libOutput2" -ForegroundColor Gray
+                Write-Host "OBS library creation: $libOutput1" -ForegroundColor Gray
+                Write-Host "Frontend library creation: $libOutput2" -ForegroundColor Gray
                 
                 # Verify libraries were created properly
                 if ((Test-Path "C:\obs-dev\lib\obs.lib") -and (Test-Path "C:\obs-dev\lib\obs-frontend-api.lib")) {
@@ -79,7 +166,7 @@ jobs:
                   $frontendLibSize = (Get-Item "C:\obs-dev\lib\obs-frontend-api.lib").Length
                   
                   if ($obsLibSize -gt 100 -and $frontendLibSize -gt 100) {
-                    Write-Host "✅ Proper binary stub libraries created (obs.lib: $obsLibSize bytes, obs-frontend-api.lib: $frontendLibSize bytes)" -ForegroundColor Green
+                    Write-Host "✅ Comprehensive stub libraries created with all 57+ functions (obs.lib: $obsLibSize bytes, obs-frontend-api.lib: $frontendLibSize bytes)" -ForegroundColor Green
                     $librariesCreated = $true
                   }
                 }
