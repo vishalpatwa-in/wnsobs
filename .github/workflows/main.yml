@@ -129,21 +129,19 @@ jobs:
         run: |
           Write-Host "=== Success Report ===" -ForegroundColor Green
           
-          $report = @"
-Incremental Test Results:
-✅ Basic PowerShell - WORKING
-✅ Repository Checkout - WORKING  
-✅ File Verification - WORKING
-✅ Project Files Check - WORKING
-✅ MSBuild Setup - WORKING
-✅ MSBuild Verification - WORKING
-✅ Solution Parse - WORKING
-
-All incremental tests passed!
-Ready to attempt actual build with OBS headers.
-"@
+          Write-Host "Incremental Test Results:" -ForegroundColor Green
+          Write-Host "✅ Basic PowerShell - WORKING" -ForegroundColor Green
+          Write-Host "✅ Repository Checkout - WORKING" -ForegroundColor Green  
+          Write-Host "✅ File Verification - WORKING" -ForegroundColor Green
+          Write-Host "✅ Project Files Check - WORKING" -ForegroundColor Green
+          Write-Host "✅ MSBuild Setup - WORKING" -ForegroundColor Green
+          Write-Host "✅ MSBuild Verification - WORKING" -ForegroundColor Green
+          Write-Host "✅ Solution Parse - WORKING" -ForegroundColor Green
+          Write-Host "" -ForegroundColor Green
+          Write-Host "All incremental tests passed!" -ForegroundColor Green
+          Write-Host "Ready to attempt actual build with OBS headers." -ForegroundColor Green
           
-          Write-Host $report -ForegroundColor Green
+          $report = "Incremental Test Results:`n✅ Basic PowerShell - WORKING`n✅ Repository Checkout - WORKING`n✅ File Verification - WORKING`n✅ Project Files Check - WORKING`n✅ MSBuild Setup - WORKING`n✅ MSBuild Verification - WORKING`n✅ Solution Parse - WORKING`n`nAll incremental tests passed!`nReady to attempt actual build with OBS headers."
           $report | Out-File -FilePath "incremental-success.txt" -Encoding UTF8
 
       - name: Upload Success Report
