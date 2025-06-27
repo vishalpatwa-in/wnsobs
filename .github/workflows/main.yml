@@ -1,0 +1,194 @@
+name: Plugin Build
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - master
+      - main
+  pull_request:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - master
+      - main
+
+env:
+  PLUGIN_NAME: 'obs-multistream'
+
+jobs:
+  clang_check:
+    name: 01 - Code Format Check
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format-13
+
+      - name: Run clang-format
+        run: |
+          find src -name '*.cpp' -o -name '*.h' | xargs clang-format-13 -i
+          if git diff --quiet; then
+            echo "Code formatting is correct"
+          else
+            echo "Code formatting issues found:"
+            git diff
+            exit 1
+          fi
+
+  windows_build:
+    name: 02 - Windows
+    runs-on: windows-2022
+    needs: clang_check
+    if: always()
+    outputs:
+      artifacts: ${{ steps.package.outputs.artifacts }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Environment
+        id: setup
+        run: |
+          $env:CMAKE_GENERATOR="Visual Studio 17 2022"
+          $env:CMAKE_GENERATOR_PLATFORM="x64"
+          
+          # Download OBS Studio development environment
+          $obsVersion = "30.0.2"
+          $obsUrl = "https://github.com/obsproject/obs-studio/releases/download/$obsVersion/obs-studio-$obsVersion-full-x64.zip"
+          
+          Write-Host "Downloading OBS Studio $obsVersion..."
+          Invoke-WebRequest -Uri $obsUrl -OutFile "obs-studio.zip"
+          
+          Write-Host "Extracting OBS Studio..."
+          Expand-Archive -Path "obs-studio.zip" -DestinationPath "obs-studio-temp"
+          
+          # Set up OBS development directories
+          New-Item -ItemType Directory -Path "C:\obs-dev\include" -Force
+          New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force
+          
+          # Copy include directory
+          if (Test-Path "obs-studio-temp\include") {
+            Copy-Item -Path "obs-studio-temp\include\*" -Destination "C:\obs-dev\include" -Recurse -Force
+          }
+          
+          # Copy libraries
+          if (Test-Path "obs-studio-temp\bin\64bit") {
+            Copy-Item -Path "obs-studio-temp\bin\64bit\*" -Destination "C:\obs-dev\lib" -Recurse -Force
+          }
+          
+          Write-Host "OBS development environment set up successfully"
+
+      - name: Build Plugin
+        run: |
+          $env:CMAKE_GENERATOR="Visual Studio 17 2022"
+          $env:CMAKE_GENERATOR_PLATFORM="x64"
+          
+          # Build using MSBuild
+          MSBuild.exe obs-multistream.sln /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Package Plugin
+        id: package
+        run: |
+          $pluginName = "${{ env.PLUGIN_NAME }}"
+          $buildPath = "bin\x64\Release"
+          $packagePath = "package"
+          
+          # Create package directory structure
+          New-Item -ItemType Directory -Path "$packagePath\obs-plugins\64bit" -Force
+          New-Item -ItemType Directory -Path "$packagePath\data\obs-plugins\$pluginName" -Force
+          
+          # Copy plugin DLL
+          if (Test-Path "$buildPath\$pluginName.dll") {
+            Copy-Item -Path "$buildPath\$pluginName.dll" -Destination "$packagePath\obs-plugins\64bit\"
+            Write-Host "✅ Plugin DLL packaged successfully"
+          } else {
+            Write-Error "❌ Plugin DLL not found at $buildPath\$pluginName.dll"
+            exit 1
+          }
+          
+          # Create ZIP package
+          $version = "1.0.0"
+          $zipName = "$pluginName-$version-windows-x64.zip"
+          Compress-Archive -Path "$packagePath\*" -DestinationPath $zipName
+          
+          Write-Host "Package created: $zipName"
+          echo "artifacts=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.PLUGIN_NAME }}-windows-x64
+          path: ${{ steps.package.outputs.artifacts }}
+
+  create_release:
+    name: 03 - Create Release
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    needs: [windows_build]
+    permissions:
+      contents: write
+    steps:
+      - name: Get Metadata
+        id: metadata
+        run: |
+          echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.metadata.outputs.version }}
+          release_name: OBS Multistream Plugin ${{ steps.metadata.outputs.version }}
+          body: |
+            # OBS Studio Multistream Plugin v${{ steps.metadata.outputs.version }}
+            
+            ## Installation
+            
+            1. Download the appropriate file for your platform
+            2. Extract the contents to your OBS Studio installation directory
+            3. Restart OBS Studio
+            4. The Multistream dock will appear in View → Docks → Multistream
+            
+            ## Features
+            
+            - Stream to multiple RTMP destinations simultaneously
+            - Support for Twitch, YouTube, Facebook, TikTok, and custom RTMP servers
+            - Shared encoding for optimal performance
+            - Individual encoder settings per destination
+            - Automatic stream lifecycle management
+            
+            ## Usage
+            
+            1. Open the Multistream dock in OBS Studio
+            2. Click "Add Destination" to configure streaming endpoints
+            3. Enter your RTMP URL and stream key for each platform
+            4. Start your normal OBS stream - multistreaming will begin automatically
+            
+            Enjoy multistreaming! 🚀
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./${{ env.PLUGIN_NAME }}-windows-x64/${{ needs.windows_build.outputs.artifacts }}
+          asset_name: ${{ needs.windows_build.outputs.artifacts }}
+          asset_content_type: application/zip 
