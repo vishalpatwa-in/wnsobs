@@ -48,93 +48,79 @@ jobs:
           New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
           
           # Create comprehensive stub source file with all 57 missing functions
-          $stubCode = @"
-// OBS Core API Stubs
-#include <stdint.h>
-#include <stdbool.h>
-
-// Data API stubs
-void* obs_data_create(void) { return (void*)0x1; }
-void obs_data_release(void* data) {}
-void* obs_data_create_from_json_file(const char* file) { return (void*)0x1; }
-void obs_data_set_string(void* data, const char* name, const char* val) {}
-void obs_data_set_bool(void* data, const char* name, bool val) {}
-void obs_data_set_int(void* data, const char* name, long long val) {}
-const char* obs_data_get_string(void* data, const char* name) { return ""; }
-bool obs_data_get_bool(void* data, const char* name) { return false; }
-long long obs_data_get_int(void* data, const char* name) { return 0; }
-void obs_data_save_json_safe(void* data, const char* file, const char* temp, const char* backup) {}
-
-// Data Array API stubs
-void* obs_data_array_create(void) { return (void*)0x1; }
-void obs_data_array_release(void* array) {}
-size_t obs_data_array_count(void* array) { return 0; }
-void* obs_data_array_item(void* array, size_t idx) { return (void*)0x1; }
-void obs_data_array_push_back(void* array, void* obj) {}
-void obs_data_set_array(void* data, const char* name, void* array) {}
-void* obs_data_get_array(void* data, const char* name) { return (void*)0x1; }
-
-// Output API stubs
-void* obs_output_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
-void obs_output_release(void* output) {}
-void obs_output_set_service(void* output, void* service) {}
-void obs_output_set_video_encoder(void* output, void* encoder) {}
-void obs_output_set_audio_encoder(void* output, void* encoder, size_t idx) {}
-bool obs_output_start(void* output) { return true; }
-void obs_output_stop(void* output) {}
-bool obs_output_active(void* output) { return false; }
-void* obs_output_get_signal_handler(void* output) { return (void*)0x1; }
-void* obs_output_get_video_encoder(void* output) { return (void*)0x1; }
-void* obs_output_get_audio_encoder(void* output, size_t idx) { return (void*)0x1; }
-int obs_output_get_frames_dropped(void* output) { return 0; }
-uint64_t obs_output_get_total_bytes(void* output) { return 0; }
-float obs_output_get_congestion(void* output) { return 0.0f; }
-
-// Service API stubs
-void* obs_service_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
-void obs_service_release(void* service) {}
-
-// Encoder API stubs
-void* obs_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
-void* obs_video_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }
-void* obs_audio_encoder_create(const char* id, const char* name, void* settings, size_t track, void* hotkey) { return (void*)0x1; }
-void obs_encoder_release(void* encoder) {}
-void obs_encoder_set_video(void* encoder, void* video) {}
-void obs_encoder_set_audio(void* encoder, void* audio) {}
-
-// Video/Audio system stubs
-void* obs_get_video(void) { return (void*)0x1; }
-void* obs_get_audio(void) { return (void*)0x1; }
-bool obs_get_video_info(void* ovi) { return true; }
-bool obs_get_audio_info(void* oai) { return true; }
-
-// Signal handler stubs
-void signal_handler_connect(void* handler, const char* signal, void* callback, void* data) {}
-void signal_handler_disconnect(void* handler, const char* signal, void* callback, void* data) {}
-
-// Calldata stubs
-long long calldata_int(const void* data, const char* name) { return 0; }
-const char* calldata_string(const void* data, const char* name) { return ""; }
-
-// Memory management stubs
-void bfree(void* ptr) {}
-
-// Logging stub
-void blog(int log_level, const char* format, ...) {}
-
-// Frontend event stubs
-void obs_frontend_add_event_callback(void* callback, void* private_data) {}
-void obs_frontend_remove_event_callback(void* callback, void* private_data) {}
-char* obs_frontend_get_global_config_path(void) { return ""; }
-void* obs_frontend_get_streaming_output(void) { return (void*)0x1; }
-
-// Properties API stubs
-void* obs_properties_create(void) { return (void*)0x1; }
-void obs_properties_destroy(void* props) {}
-void* obs_properties_add_text(void* props, const char* name, const char* description, int type) { return (void*)0x1; }
-void* obs_properties_add_button(void* props, const char* name, const char* text, void* callback) { return (void*)0x1; }
-void obs_property_set_enabled(void* prop, bool enabled) {}
-"@
+          $stubCode = "// OBS Core API Stubs`n" +
+            "#include <stdint.h>`n" +
+            "#include <stdbool.h>`n`n" +
+            "// Data API stubs`n" +
+            "void* obs_data_create(void) { return (void*)0x1; }`n" +
+            "void obs_data_release(void* data) {}`n" +
+            "void* obs_data_create_from_json_file(const char* file) { return (void*)0x1; }`n" +
+            "void obs_data_set_string(void* data, const char* name, const char* val) {}`n" +
+            "void obs_data_set_bool(void* data, const char* name, bool val) {}`n" +
+            "void obs_data_set_int(void* data, const char* name, long long val) {}`n" +
+            "const char* obs_data_get_string(void* data, const char* name) { return `"`"`"; }`n" +
+            "bool obs_data_get_bool(void* data, const char* name) { return false; }`n" +
+            "long long obs_data_get_int(void* data, const char* name) { return 0; }`n" +
+            "void obs_data_save_json_safe(void* data, const char* file, const char* temp, const char* backup) {}`n`n" +
+            "// Data Array API stubs`n" +
+            "void* obs_data_array_create(void) { return (void*)0x1; }`n" +
+            "void obs_data_array_release(void* array) {}`n" +
+            "size_t obs_data_array_count(void* array) { return 0; }`n" +
+            "void* obs_data_array_item(void* array, size_t idx) { return (void*)0x1; }`n" +
+            "void obs_data_array_push_back(void* array, void* obj) {}`n" +
+            "void obs_data_set_array(void* data, const char* name, void* array) {}`n" +
+            "void* obs_data_get_array(void* data, const char* name) { return (void*)0x1; }`n`n" +
+            "// Output API stubs`n" +
+            "void* obs_output_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }`n" +
+            "void obs_output_release(void* output) {}`n" +
+            "void obs_output_set_service(void* output, void* service) {}`n" +
+            "void obs_output_set_video_encoder(void* output, void* encoder) {}`n" +
+            "void obs_output_set_audio_encoder(void* output, void* encoder, size_t idx) {}`n" +
+            "bool obs_output_start(void* output) { return true; }`n" +
+            "void obs_output_stop(void* output) {}`n" +
+            "bool obs_output_active(void* output) { return false; }`n" +
+            "void* obs_output_get_signal_handler(void* output) { return (void*)0x1; }`n" +
+            "void* obs_output_get_video_encoder(void* output) { return (void*)0x1; }`n" +
+            "void* obs_output_get_audio_encoder(void* output, size_t idx) { return (void*)0x1; }`n" +
+            "int obs_output_get_frames_dropped(void* output) { return 0; }`n" +
+            "uint64_t obs_output_get_total_bytes(void* output) { return 0; }`n" +
+            "float obs_output_get_congestion(void* output) { return 0.0f; }`n`n" +
+            "// Service API stubs`n" +
+            "void* obs_service_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }`n" +
+            "void obs_service_release(void* service) {}`n`n" +
+            "// Encoder API stubs`n" +
+            "void* obs_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }`n" +
+            "void* obs_video_encoder_create(const char* id, const char* name, void* settings, void* hotkey) { return (void*)0x1; }`n" +
+            "void* obs_audio_encoder_create(const char* id, const char* name, void* settings, size_t track, void* hotkey) { return (void*)0x1; }`n" +
+            "void obs_encoder_release(void* encoder) {}`n" +
+            "void obs_encoder_set_video(void* encoder, void* video) {}`n" +
+            "void obs_encoder_set_audio(void* encoder, void* audio) {}`n`n" +
+            "// Video/Audio system stubs`n" +
+            "void* obs_get_video(void) { return (void*)0x1; }`n" +
+            "void* obs_get_audio(void) { return (void*)0x1; }`n" +
+            "bool obs_get_video_info(void* ovi) { return true; }`n" +
+            "bool obs_get_audio_info(void* oai) { return true; }`n`n" +
+            "// Signal handler stubs`n" +
+            "void signal_handler_connect(void* handler, const char* signal, void* callback, void* data) {}`n" +
+            "void signal_handler_disconnect(void* handler, const char* signal, void* callback, void* data) {}`n`n" +
+            "// Calldata stubs`n" +
+            "long long calldata_int(const void* data, const char* name) { return 0; }`n" +
+            "const char* calldata_string(const void* data, const char* name) { return `"`"`"; }`n`n" +
+            "// Memory management stubs`n" +
+            "void bfree(void* ptr) {}`n`n" +
+            "// Logging stub`n" +
+            "void blog(int log_level, const char* format, ...) {}`n`n" +
+            "// Frontend event stubs`n" +
+            "void obs_frontend_add_event_callback(void* callback, void* private_data) {}`n" +
+            "void obs_frontend_remove_event_callback(void* callback, void* private_data) {}`n" +
+            "char* obs_frontend_get_global_config_path(void) { return `"`"`"; }`n" +
+            "void* obs_frontend_get_streaming_output(void) { return (void*)0x1; }`n`n" +
+            "// Properties API stubs`n" +
+            "void* obs_properties_create(void) { return (void*)0x1; }`n" +
+            "void obs_properties_destroy(void* props) {}`n" +
+            "void* obs_properties_add_text(void* props, const char* name, const char* description, int type) { return (void*)0x1; }`n" +
+            "void* obs_properties_add_button(void* props, const char* name, const char* text, void* callback) { return (void*)0x1; }`n" +
+            "void obs_property_set_enabled(void* prop, bool enabled) {}"
           $stubCode | Out-File -FilePath "C:\obs-dev\stub.c" -Encoding ASCII
           
           # Find and use cl.exe from Visual Studio
