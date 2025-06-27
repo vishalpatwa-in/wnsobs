@@ -61,83 +61,17 @@ jobs:
           New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
           
           # Create minimal obs-module.h
-          $obsModuleHeader = @'
-#pragma once
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define OBS_DECLARE_MODULE()
-#define OBS_MODULE_USE_DEFAULT_LOCALE(name, locale)
-#define EXPORT __declspec(dllexport)
-
-// Logging
-#define LOG_ERROR 100
-#define LOG_WARNING 200  
-#define LOG_INFO 300
-#define LOG_DEBUG 400
-
-void blog(int log_level, const char *format, ...);
-
-#ifdef __cplusplus
-}
-#endif
-'@
+          $obsModuleHeader = "#pragma once`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`n#define OBS_DECLARE_MODULE()`n#define OBS_MODULE_USE_DEFAULT_LOCALE(name, locale)`n#define EXPORT __declspec(dllexport)`n`n// Logging`n#define LOG_ERROR 100`n#define LOG_WARNING 200`n#define LOG_INFO 300`n#define LOG_DEBUG 400`n`nvoid blog(int log_level, const char *format, ...);`n`n#ifdef __cplusplus`n}`n#endif"
           
           $obsModuleHeader | Out-File -FilePath "C:\obs-dev\include\obs-module.h" -Encoding UTF8
           
           # Create minimal obs-frontend-api.h
-          $obsFrontendHeader = @'
-#pragma once
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-enum obs_frontend_event {
-    OBS_FRONTEND_EVENT_STREAMING_STARTED,
-    OBS_FRONTEND_EVENT_STREAMING_STOPPED
-};
-
-typedef void (*obs_frontend_event_cb)(enum obs_frontend_event event, void *private_data);
-
-void obs_frontend_add_event_callback(obs_frontend_event_cb callback, void *private_data);
-void obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *private_data);
-char *obs_frontend_get_global_config_path(void);
-
-#ifdef __cplusplus
-}
-#endif
-'@
+          $obsFrontendHeader = "#pragma once`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`nenum obs_frontend_event {`n    OBS_FRONTEND_EVENT_STREAMING_STARTED,`n    OBS_FRONTEND_EVENT_STREAMING_STOPPED`n};`n`ntypedef void (*obs_frontend_event_cb)(enum obs_frontend_event event, void *private_data);`n`nvoid obs_frontend_add_event_callback(obs_frontend_event_cb callback, void *private_data);`nvoid obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *private_data);`nchar *obs_frontend_get_global_config_path(void);`n`n#ifdef __cplusplus`n}`n#endif"
           
           $obsFrontendHeader | Out-File -FilePath "C:\obs-dev\include\obs-frontend-api.h" -Encoding UTF8
           
           # Create minimal obs.h
-          $obsHeader = @'
-#pragma once
-#include "obs-module.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct obs_data obs_data_t;
-typedef struct obs_data_array obs_data_array_t;
-typedef struct obs_output obs_output_t;
-typedef struct obs_encoder obs_encoder_t;
-typedef struct obs_service obs_service_t;
-
-// Stub functions
-obs_data_t *obs_data_create(void);
-void obs_data_release(obs_data_t *data);
-obs_data_t *obs_data_create_from_json_file(const char *json_file);
-
-// Memory management
-void bfree(void *ptr);
-
-#ifdef __cplusplus
-}
-#endif
-'@
+          $obsHeader = "#pragma once`n#include `"obs-module.h`"`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`ntypedef struct obs_data obs_data_t;`ntypedef struct obs_data_array obs_data_array_t;`ntypedef struct obs_output obs_output_t;`ntypedef struct obs_encoder obs_encoder_t;`ntypedef struct obs_service obs_service_t;`n`n// Stub functions`nobs_data_t *obs_data_create(void);`nvoid obs_data_release(obs_data_t *data);`nobs_data_t *obs_data_create_from_json_file(const char *json_file);`n`n// Memory management`nvoid bfree(void *ptr);`n`n#ifdef __cplusplus`n}`n#endif"
           
           $obsHeader | Out-File -FilePath "C:\obs-dev\include\obs.h" -Encoding UTF8
           
@@ -209,18 +143,7 @@ void bfree(void *ptr);
           Copy-Item -Path $dllPath -Destination "$packagePath\obs-plugins\64bit\" -Force
           
           # Create installation instructions
-          $installText = @'
-# OBS Multistream Plugin - GitHub Actions Build
-
-## Installation:
-1. Copy obs-plugins\64bit\obs-multistream.dll to your OBS Studio obs-plugins\64bit\ directory
-2. Restart OBS Studio
-3. Look for Multistream in View → Docks
-
-## Note:
-This build was created with minimal OBS headers for CI testing.
-For full functionality, a complete OBS Studio development environment is recommended.
-'@
+          $installText = "# OBS Multistream Plugin - GitHub Actions Build`n`n## Installation:`n1. Copy obs-plugins\64bit\obs-multistream.dll to your OBS Studio obs-plugins\64bit\ directory`n2. Restart OBS Studio`n3. Look for Multistream in View → Docks`n`n## Note:`nThis build was created with minimal OBS headers for CI testing.`nFor full functionality, a complete OBS Studio development environment is recommended."
           
           $installText | Out-File -FilePath "$packagePath\INSTALL.txt" -Encoding UTF8
           
