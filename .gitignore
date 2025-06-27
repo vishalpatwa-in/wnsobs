@@ -10,6 +10,7 @@ package/
 *.ilk
 *.exp
 *.cursorrules
+instructions.md
 
 # Visual Studio files
 .vs/
