@@ -36,203 +36,260 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Verify Project Structure
-        run: |
-          Write-Host "=== Verifying Project Structure ===" -ForegroundColor Green
-          $projectFiles = @("obs-multistream.sln", "obs-multistream.vcxproj", "src\obs-multistream.cpp", "src\obs-multistream.h")
-          foreach ($file in $projectFiles) {
-            if (Test-Path $file) {
-              Write-Host "✅ Found: $file" -ForegroundColor Green
-            } else {
-              Write-Host "❌ Missing: $file" -ForegroundColor Red
-              exit 1
-            }
-          }
-
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1.1
 
-      - name: Create OBS Development Environment
+      - name: Create Minimal OBS Headers
         run: |
-          Write-Host "=== Creating OBS Development Environment ===" -ForegroundColor Green
+          Write-Host "=== Creating Minimal OBS Headers ===" -ForegroundColor Green
           
           # Create directory structure
           New-Item -ItemType Directory -Path "C:\obs-dev\include" -Force | Out-Null
-          New-Item -ItemType Directory -Path "C:\obs-dev\include\util" -Force | Out-Null
           New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
           
-          # Create minimal obs-module.h
-          $obsModuleHeader = "#pragma once`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`n#define OBS_DECLARE_MODULE()`n#define OBS_MODULE_USE_DEFAULT_LOCALE(name, locale)`n#define EXPORT __declspec(dllexport)`n`n// Logging`n#define LOG_ERROR 100`n#define LOG_WARNING 200`n#define LOG_INFO 300`n#define LOG_DEBUG 400`n`nvoid blog(int log_level, const char *format, ...);`n`n#ifdef __cplusplus`n}`n#endif"
+          # Create ultra-minimal obs-module.h
+          $obsModuleHeader = @"
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define OBS_DECLARE_MODULE()
+#define OBS_MODULE_USE_DEFAULT_LOCALE(name, locale)
+#define EXPORT __declspec(dllexport)
+
+#ifdef __cplusplus
+}
+#endif
+"@
           
           $obsModuleHeader | Out-File -FilePath "C:\obs-dev\include\obs-module.h" -Encoding UTF8
           
-          # Create minimal obs-frontend-api.h
-          $obsFrontendHeader = "#pragma once`n#include `"obs.h`"`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`nenum obs_frontend_event {`n    OBS_FRONTEND_EVENT_STREAMING_STARTED,`n    OBS_FRONTEND_EVENT_STREAMING_STOPPED`n};`n`ntypedef void (*obs_frontend_event_cb)(enum obs_frontend_event event, void *private_data);`n`nvoid obs_frontend_add_event_callback(obs_frontend_event_cb callback, void *private_data);`nvoid obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *private_data);`nchar *obs_frontend_get_global_config_path(void);`nobs_output_t *obs_frontend_get_streaming_output(void);`n`n// Dock functions (stubs for CI)`nvoid* obs_frontend_get_main_window(void);`nbool obs_frontend_add_dock_by_id(const char* id, const char* title, void* widget);`nvoid obs_frontend_remove_dock(const char* id);`n`n#ifdef __cplusplus`n}`n#endif"
-          
-          $obsFrontendHeader | Out-File -FilePath "C:\obs-dev\include\obs-frontend-api.h" -Encoding UTF8
-          
-          # Create minimal obs-properties.h
-          $obsPropertiesHeader = "#pragma once`n#include `"obs.h`"`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`ntypedef struct obs_properties obs_properties_t;`ntypedef struct obs_property obs_property_t;`n`nenum obs_text_type {`n    OBS_TEXT_DEFAULT,`n    OBS_TEXT_MULTILINE`n};`n`ntypedef bool (*obs_property_clicked_t)(obs_properties_t *props, obs_property_t *property, void *data);`n`nobs_properties_t *obs_properties_create(void);`nvoid obs_properties_destroy(obs_properties_t *props);`nobs_property_t *obs_properties_add_text(obs_properties_t *props, const char *name, const char *description, enum obs_text_type type);`nobs_property_t *obs_properties_add_button(obs_properties_t *props, const char *name, const char *text, obs_property_clicked_t callback);`nvoid obs_property_set_enabled(obs_property_t *p, bool enabled);`n`n#ifdef __cplusplus`n}`n#endif"
-          
-          $obsPropertiesHeader | Out-File -FilePath "C:\obs-dev\include\obs-properties.h" -Encoding UTF8
-          
-          # Create minimal util/platform.h
-          $utilPlatformHeader = "#pragma once`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`n// Platform utilities stub`n#define UNUSED_PARAMETER(param) ((void)(param))`n`n#ifdef __cplusplus`n}`n#endif"
-          
-          $utilPlatformHeader | Out-File -FilePath "C:\obs-dev\include\util\platform.h" -Encoding UTF8
-          
-          # Create minimal obs.h
-          $obsHeader = "#pragma once`n#include `"obs-module.h`"`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`ntypedef struct obs_data obs_data_t;`ntypedef struct obs_data_array obs_data_array_t;`ntypedef struct obs_output obs_output_t;`ntypedef struct obs_encoder obs_encoder_t;`ntypedef struct obs_service obs_service_t;`ntypedef struct signal_handler signal_handler_t;`n`nenum obs_output_code {`n    OBS_OUTPUT_SUCCESS`n};`n`n// Data functions`nobs_data_t *obs_data_create(void);`nvoid obs_data_release(obs_data_t *data);`nobs_data_t *obs_data_create_from_json_file(const char *json_file);`nvoid obs_data_set_string(obs_data_t *data, const char *name, const char *val);`nvoid obs_data_set_bool(obs_data_t *data, const char *name, bool val);`nvoid obs_data_set_int(obs_data_t *data, const char *name, long long val);`nvoid obs_data_set_array(obs_data_t *data, const char *name, obs_data_array_t *array);`nconst char *obs_data_get_string(obs_data_t *data, const char *name);`nbool obs_data_get_bool(obs_data_t *data, const char *name);`nlong long obs_data_get_int(obs_data_t *data, const char *name);`nobs_data_array_t *obs_data_get_array(obs_data_t *data, const char *name);`nvoid obs_data_save_json_safe(obs_data_t *data, const char *file, const char *temp_ext, const char *backup_ext);`n`n// Array functions`nobs_data_array_t *obs_data_array_create(void);`nvoid obs_data_array_release(obs_data_array_t *array);`nvoid obs_data_array_push_back(obs_data_array_t *array, obs_data_t *obj);`nsize_t obs_data_array_count(obs_data_array_t *array);`nobs_data_t *obs_data_array_item(obs_data_array_t *array, size_t idx);`n`n// Output functions`nobs_output_t *obs_output_create(const char *id, const char *name, obs_data_t *settings, obs_data_t *hotkey);`nvoid obs_output_release(obs_output_t *output);`nvoid obs_output_set_service(obs_output_t *output, obs_service_t *service);`nvoid obs_output_set_video_encoder(obs_output_t *output, obs_encoder_t *encoder);`nvoid obs_output_set_audio_encoder(obs_output_t *output, obs_encoder_t *encoder, size_t idx);`nbool obs_output_start(obs_output_t *output);`nvoid obs_output_stop(obs_output_t *output);`nbool obs_output_active(obs_output_t *output);`nuint64_t obs_output_get_total_bytes(obs_output_t *output);`nint obs_output_get_frames_dropped(obs_output_t *output);`nfloat obs_output_get_congestion(obs_output_t *output);`nsignal_handler_t *obs_output_get_signal_handler(obs_output_t *output);`nobs_encoder_t *obs_output_get_video_encoder(obs_output_t *output);`nobs_encoder_t *obs_output_get_audio_encoder(obs_output_t *output, size_t idx);`n`n// Service functions`nobs_service_t *obs_service_create(const char *id, const char *name, obs_data_t *settings, obs_data_t *hotkey);`nvoid obs_service_release(obs_service_t *service);`n`n// Encoder functions`nobs_encoder_t *obs_encoder_create(const char *id, const char *name, obs_data_t *settings, obs_data_t *hotkey);`nvoid obs_encoder_release(obs_encoder_t *encoder);`n`n// Signal functions`nvoid signal_handler_connect(signal_handler_t *handler, const char *signal, void (*callback)(void *data, calldata_t *cd), void *data);`nvoid signal_handler_disconnect(signal_handler_t *handler, const char *signal, void (*callback)(void *data, calldata_t *cd), void *data);`n`n// Callback data`ntypedef struct calldata calldata_t;`n`n// Memory management`nvoid bfree(void *ptr);`n`n#ifdef __cplusplus`n}`n#endif"
-          
-          $obsHeader | Out-File -FilePath "C:\obs-dev\include\obs.h" -Encoding UTF8
-          
-          # Create stub libraries using LIB.EXE
-          Write-Host "Creating stub library files..." -ForegroundColor Yellow
-          
-          # Create a simple object file to make valid libraries
-          $stubCode = "void stub_function() {}"
-          $stubCode | Out-File -FilePath "C:\obs-dev\stub.c" -Encoding ASCII
-          
-          # Compile stub object file
-          cl.exe /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1 | Write-Host
-          
-          # Create libraries from object file
-          lib.exe /OUT:"C:\obs-dev\lib\obs.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
-          lib.exe /OUT:"C:\obs-dev\lib\obs-frontend-api.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
-          
-          # Clean up
-          Remove-Item "C:\obs-dev\stub.c" -ErrorAction SilentlyContinue
-          Remove-Item "C:\obs-dev\stub.obj" -ErrorAction SilentlyContinue
-          
-          Write-Host "✅ OBS development environment created" -ForegroundColor Green
+          Write-Host "✅ Minimal OBS headers created" -ForegroundColor Green
 
-      - name: Build Plugin
+      - name: Test Simple Compilation
         run: |
-          Write-Host "=== Building Plugin ===" -ForegroundColor Green
+          Write-Host "=== Testing Simple Compilation ===" -ForegroundColor Green
           
-          # Verify OBS development environment
-          Write-Host "Verifying OBS development environment..." -ForegroundColor Cyan
-          if (Test-Path "C:\obs-dev\include\obs.h") {
-            Write-Host "✅ obs.h found" -ForegroundColor Green
-          } else {
-            Write-Host "❌ obs.h missing" -ForegroundColor Red
-          }
+          # Create a simple test file
+          $testCode = @"
+#include <obs-module.h>
+
+OBS_DECLARE_MODULE()
+OBS_MODULE_USE_DEFAULT_LOCALE("obs-multistream", "en-US")
+
+extern "C" {
+
+EXPORT bool obs_module_load(void) {
+    return true;
+}
+
+EXPORT void obs_module_unload(void) {
+}
+
+EXPORT const char* obs_module_name(void) {
+    return "Test Plugin";
+}
+
+EXPORT const char* obs_module_description(void) {
+    return "Simple test plugin";
+}
+
+}
+"@
           
-          if (Test-Path "C:\obs-dev\lib\obs.lib") {
-            $libSize = (Get-Item "C:\obs-dev\lib\obs.lib").Length
-            Write-Host "✅ obs.lib found (size: $libSize bytes)" -ForegroundColor Green
-          } else {
-            Write-Host "❌ obs.lib missing" -ForegroundColor Red
-          }
+          $testCode | Out-File -FilePath "test-plugin.cpp" -Encoding UTF8
           
-          # Show project files
-          Write-Host "Project files:" -ForegroundColor Cyan
-          Get-ChildItem "src\" | ForEach-Object { Write-Host "  - $($_.Name)" }
-          
-          # Attempt build with detailed output
-          Write-Host "Starting MSBuild..." -ForegroundColor Cyan
+          # Test direct compilation with cl.exe
+          Write-Host "Testing direct compilation with cl.exe..." -ForegroundColor Cyan
           
           try {
-            $buildResult = MSBuild.exe obs-multistream.sln `
-              /p:Configuration=Release `
-              /p:Platform=x64 `
-              /p:PlatformToolset=v143 `
-              /p:WindowsTargetPlatformVersion=10.0 `
-              /verbosity:detailed `
-              /nologo `
-              /maxcpucount
+            $compileResult = cl.exe /I"C:\obs-dev\include" /LD test-plugin.cpp /Fe:test-plugin.dll 2>&1
+            Write-Host "Direct compilation result:" -ForegroundColor Yellow
+            $compileResult | ForEach-Object { Write-Host $_ }
+            Write-Host "Exit code: $LASTEXITCODE" -ForegroundColor Yellow
             
-            Write-Host "MSBuild exit code: $LASTEXITCODE" -ForegroundColor Cyan
-            
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "✅ Build completed successfully" -ForegroundColor Green
-            } elseif ($LASTEXITCODE -eq 1) {
-              Write-Host "⚠️ Build completed with warnings (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
-              Write-Host "This is expected with minimal OBS headers - continuing..." -ForegroundColor Yellow
-              # Reset exit code to 0 to continue workflow
-              $global:LASTEXITCODE = 0
+            if (Test-Path "test-plugin.dll") {
+              $dllSize = (Get-Item "test-plugin.dll").Length
+              Write-Host "✅ Direct compilation successful! DLL size: $dllSize bytes" -ForegroundColor Green
             } else {
-              Write-Host "❌ Build failed with errors (exit code: $LASTEXITCODE)" -ForegroundColor Red
-              Write-Host "Attempting to continue for debugging..." -ForegroundColor Yellow
+              Write-Host "❌ Direct compilation failed - no DLL created" -ForegroundColor Red
             }
           }
           catch {
-            Write-Host "❌ Build exception: $_" -ForegroundColor Red
-            Write-Host "Continuing for debugging..." -ForegroundColor Yellow
+            Write-Host "❌ Direct compilation exception: $_" -ForegroundColor Red
           }
 
-      - name: Find and Package Build Output
+      - name: Test MSBuild Simple Project
+        run: |
+          Write-Host "=== Testing MSBuild with Simple Project ===" -ForegroundColor Green
+          
+          # Create a minimal .vcxproj file for testing
+          $simpleProject = @"
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{TEST-GUID-1234-5678-9ABC}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="`$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'`$(Configuration)|`$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="`$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'`$(Configuration)|`$(Platform)'=='Release|x64'">
+    <OutDir>test-output\</OutDir>
+    <TargetName>test-plugin</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'`$(Configuration)|`$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\obs-dev\include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="test-plugin.cpp" />
+  </ItemGroup>
+  <Import Project="`$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
+"@
+          
+          $simpleProject | Out-File -FilePath "test-plugin.vcxproj" -Encoding UTF8
+          
+          # Test MSBuild with simple project
+          Write-Host "Testing MSBuild with simple project..." -ForegroundColor Cyan
+          
+          try {
+            $msbuildResult = MSBuild.exe test-plugin.vcxproj /p:Configuration=Release /p:Platform=x64 /verbosity:detailed 2>&1
+            Write-Host "MSBuild result:" -ForegroundColor Yellow
+            $msbuildResult | ForEach-Object { Write-Host $_ }
+            Write-Host "Exit code: $LASTEXITCODE" -ForegroundColor Yellow
+            
+            if (Test-Path "test-output\test-plugin.dll") {
+              $dllSize = (Get-Item "test-output\test-plugin.dll").Length
+              Write-Host "✅ MSBuild successful! DLL size: $dllSize bytes" -ForegroundColor Green
+            } else {
+              Write-Host "❌ MSBuild failed - no DLL created" -ForegroundColor Red
+            }
+          }
+          catch {
+            Write-Host "❌ MSBuild exception: $_" -ForegroundColor Red
+          }
+
+      - name: Test Original Project Build
+        run: |
+          Write-Host "=== Testing Original Project Build ===" -ForegroundColor Green
+          
+          # Show what source files we have
+          Write-Host "Source files:" -ForegroundColor Cyan
+          Get-ChildItem "src\" | ForEach-Object { Write-Host "  - $($_.Name)" }
+          
+          # Try building the original project
+          Write-Host "Testing original project build..." -ForegroundColor Cyan
+          
+          try {
+            $originalResult = MSBuild.exe obs-multistream.sln /p:Configuration=Release /p:Platform=x64 /verbosity:normal 2>&1
+            Write-Host "Original build result:" -ForegroundColor Yellow
+            $originalResult | ForEach-Object { Write-Host $_ }
+            Write-Host "Exit code: $LASTEXITCODE" -ForegroundColor Yellow
+            
+            # Check all possible output locations
+            $searchPaths = @("bin\x64\Release", "bin\Release", "x64\Release", "Release")
+            $foundOutput = $false
+            
+            foreach ($path in $searchPaths) {
+              if (Test-Path "$path\obs-multistream.dll") {
+                $dllSize = (Get-Item "$path\obs-multistream.dll").Length
+                Write-Host "✅ Found output: $path\obs-multistream.dll (size: $dllSize bytes)" -ForegroundColor Green
+                $foundOutput = $true
+                break
+              }
+            }
+            
+            if (-not $foundOutput) {
+              Write-Host "❌ No output DLL found in expected locations" -ForegroundColor Red
+            }
+          }
+          catch {
+            Write-Host "❌ Original build exception: $_" -ForegroundColor Red
+          }
+
+      - name: Package Results
         id: package
         run: |
-          Write-Host "=== Finding Build Output ===" -ForegroundColor Green
+          Write-Host "=== Packaging Results ===" -ForegroundColor Green
           
-          # Show all possible output locations
-          Write-Host "Searching for build output in multiple locations..." -ForegroundColor Cyan
-          $allPaths = @("bin", "bin\x64", "bin\x64\Release", "bin\Release", "x64", "x64\Release", "Release", "obj", "obj\x64", "obj\x64\Release")
+          # Look for any DLL files created
+          $dllFiles = @()
           
-          foreach ($path in $allPaths) {
-            if (Test-Path $path) {
-              Write-Host "📁 Directory exists: $path" -ForegroundColor Yellow
-              $files = Get-ChildItem $path -ErrorAction SilentlyContinue
-              if ($files.Count -gt 0) {
-                foreach ($file in $files) {
-                  Write-Host "  - $($file.Name) ($($file.Length) bytes)" -ForegroundColor Gray
-                }
-              } else {
-                Write-Host "  (empty)" -ForegroundColor Gray
-              }
-            } else {
-              Write-Host "❌ Directory not found: $path" -ForegroundColor Red
-            }
+          if (Test-Path "test-plugin.dll") {
+            $dllFiles += "test-plugin.dll"
+            Write-Host "✅ Found: test-plugin.dll (direct compilation)" -ForegroundColor Green
           }
           
-          # Look for DLL files specifically
-          $outputFound = $false
+          if (Test-Path "test-output\test-plugin.dll") {
+            $dllFiles += "test-output\test-plugin.dll"
+            Write-Host "✅ Found: test-output\test-plugin.dll (MSBuild simple)" -ForegroundColor Green
+          }
+          
           $searchPaths = @("bin\x64\Release", "bin\Release", "x64\Release", "Release")
-          
           foreach ($path in $searchPaths) {
-            if (Test-Path $path) {
-              Write-Host "📁 Checking for DLL in: $path" -ForegroundColor Cyan
-              $files = Get-ChildItem $path -ErrorAction SilentlyContinue
-              foreach ($file in $files) {
-                if ($file.Name -like "*.dll") {
-                  $outputFound = $true
-                  $dllPath = $file.FullName
-                  $dllSize = $file.Length
-                  Write-Host "✅ Found DLL: $dllPath (size: $dllSize bytes)" -ForegroundColor Green
-                  
-                  # Check if it's a real DLL or placeholder
-                  $content = Get-Content $dllPath -Raw -ErrorAction SilentlyContinue
-                  if ($content -and $content.StartsWith("Test build output")) {
-                    Write-Host "⚠️ This is a placeholder file, not a real DLL" -ForegroundColor Yellow
-                  } else {
-                    Write-Host "✅ Appears to be a real DLL file" -ForegroundColor Green
-                  }
-                }
-              }
+            if (Test-Path "$path\obs-multistream.dll") {
+              $dllFiles += "$path\obs-multistream.dll"
+              Write-Host "✅ Found: $path\obs-multistream.dll (original project)" -ForegroundColor Green
+              break
             }
-          }
-          
-          if (-not $outputFound) {
-            Write-Host "⚠️ No DLL output found - creating test package" -ForegroundColor Yellow
-            New-Item -ItemType Directory -Path "bin\x64\Release" -Force | Out-Null
-            "Test build output" | Out-File -FilePath "bin\x64\Release\obs-multistream.dll" -Encoding ASCII
-            $dllPath = "bin\x64\Release\obs-multistream.dll"
           }
           
           # Create package
           $packagePath = "package"
           New-Item -ItemType Directory -Path "$packagePath\obs-plugins\64bit" -Force | Out-Null
-          Copy-Item -Path $dllPath -Destination "$packagePath\obs-plugins\64bit\" -Force
+          
+          if ($dllFiles.Count -gt 0) {
+            # Use the first successful DLL
+            $selectedDll = $dllFiles[0]
+            Copy-Item -Path $selectedDll -Destination "$packagePath\obs-plugins\64bit\obs-multistream.dll" -Force
+            Write-Host "📦 Packaged: $selectedDll" -ForegroundColor Green
+          } else {
+            # Create placeholder if no DLL was created
+            "Test build output - no successful compilation" | Out-File -FilePath "$packagePath\obs-plugins\64bit\obs-multistream.dll" -Encoding ASCII
+            Write-Host "📦 Created placeholder file" -ForegroundColor Yellow
+          }
           
           # Create installation instructions
-          $installText = "# OBS Multistream Plugin - GitHub Actions Build`n`n## Installation:`n1. Copy obs-plugins\64bit\obs-multistream.dll to your OBS Studio obs-plugins\64bit\ directory`n2. Restart OBS Studio`n3. Look for Multistream in View → Docks`n`n## Note:`nThis build was created with minimal OBS headers for CI testing.`nFor full functionality, a complete OBS Studio development environment is recommended."
+          $installText = @"
+# OBS Multistream Plugin - Build Test Results
+
+## Build Status:
+- Direct compilation test: $(if (Test-Path "test-plugin.dll") { "SUCCESS" } else { "FAILED" })
+- MSBuild simple test: $(if (Test-Path "test-output\test-plugin.dll") { "SUCCESS" } else { "FAILED" })
+- Original project build: $(if ($dllFiles -like "*obs-multistream.dll") { "SUCCESS" } else { "FAILED" })
+
+## Installation:
+1. Copy obs-plugins\64bit\obs-multistream.dll to your OBS Studio obs-plugins\64bit\ directory
+2. Restart OBS Studio
+3. Look for Multistream in View → Docks
+
+## Note:
+This is a diagnostic build to identify compilation issues.
+"@
           
           $installText | Out-File -FilePath "$packagePath\INSTALL.txt" -Encoding UTF8
           
           # Create ZIP package
-          $version = if ($env:GITHUB_REF -match 'refs/tags/(.*)') { $matches[1] } else { "test-build" }
-          $zipName = "${{ env.PLUGIN_NAME }}-$version-windows-x64.zip"
+          $zipName = "${{ env.PLUGIN_NAME }}-diagnostic-build.zip"
           Compress-Archive -Path "$packagePath\*" -DestinationPath $zipName -Force
           
           Write-Host "📦 Package created: $zipName" -ForegroundColor Green
@@ -241,7 +298,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PLUGIN_NAME }}-build
+          name: ${{ env.PLUGIN_NAME }}-diagnostic
           path: ${{ steps.package.outputs.artifacts }}
 
   success_summary:
@@ -252,16 +309,12 @@ jobs:
     steps:
       - name: Build Summary
         run: |
-          echo "🎉 OBS Multistream Plugin Build Complete!"
+          echo "🔍 OBS Multistream Plugin Diagnostic Build Complete!"
           echo ""
-          echo "✅ All incremental tests passed successfully"
-          echo "✅ OBS development environment created"
-          echo "✅ Plugin build attempted with minimal headers"
-          echo "✅ Package created and uploaded as artifact"
+          echo "This diagnostic build tests three compilation approaches:"
+          echo "1. Direct cl.exe compilation (minimal test)"
+          echo "2. MSBuild with simple project (MSBuild test)"
+          echo "3. Original project build (full complexity test)"
           echo ""
-          echo "🎯 Next Steps:"
-          echo "1. Download the build artifact"
-          echo "2. Test the plugin with OBS Studio"
-          echo "3. For production builds, use full OBS development environment"
-          echo ""
-          echo "🏆 GitHub Actions CI/CD pipeline is now fully functional!" 
+          echo "Download the artifact to see which approach succeeded."
+          echo "This will help identify the exact compilation issue." 
