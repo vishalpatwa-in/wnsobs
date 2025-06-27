@@ -145,7 +145,7 @@ jobs:
           $report | Out-File -FilePath "incremental-success.txt" -Encoding UTF8
 
       - name: Upload Success Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: incremental-test-success
           path: incremental-success.txt
