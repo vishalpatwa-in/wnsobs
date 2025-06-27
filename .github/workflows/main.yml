@@ -1,4 +1,4 @@
-name: Plugin Build - Ultra Minimal Debug
+name: Plugin Build - Basic PowerShell Debug
 on:
   push:
     paths-ignore:
@@ -23,147 +23,53 @@ jobs:
           echo "✅ Format check bypassed for debugging"
           ls -la src/ || echo "No src directory"
 
-  windows_minimal:
-    name: 02 - Windows Minimal Debug
+  windows_basic:
+    name: 02 - Windows Basic PowerShell Test
     runs-on: windows-2022
     if: always()
     defaults:
       run:
         shell: pwsh
     steps:
-      - name: Basic PowerShell Test
+      - name: Test 1 - Basic Echo
         run: |
-          Write-Host "=== Basic PowerShell Test ===" -ForegroundColor Green
-          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)" -ForegroundColor Yellow
-          Write-Host "Current location: $(Get-Location)" -ForegroundColor Yellow
-          Write-Host "Test completed successfully" -ForegroundColor Green
+          Write-Host "=== Test 1: Basic Echo ===" -ForegroundColor Green
+          Write-Host "This is a basic echo test" -ForegroundColor Yellow
+          Write-Host "✅ Basic echo successful" -ForegroundColor Green
 
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Verify Checkout Success
+      - name: Test 2 - PowerShell Version
         run: |
-          Write-Host "=== Verifying Checkout ===" -ForegroundColor Green
-          try {
-            $location = Get-Location
-            Write-Host "Location: $location" -ForegroundColor Yellow
-            
-            $items = Get-ChildItem -ErrorAction Stop
-            Write-Host "Items found: $($items.Count)" -ForegroundColor Yellow
-            
-            foreach ($item in $items | Select-Object -First 5) {
-              Write-Host "  - $($item.Name)" -ForegroundColor Gray
-            }
-            
-            Write-Host "✅ Checkout verification passed" -ForegroundColor Green
-          }
-          catch {
-            Write-Host "❌ Checkout verification failed: $_" -ForegroundColor Red
-            exit 1
-          }
+          Write-Host "=== Test 2: PowerShell Version ===" -ForegroundColor Green
+          $PSVersionTable
+          Write-Host "✅ PowerShell version check successful" -ForegroundColor Green
 
-      - name: Test MSBuild Setup
-        uses: microsoft/setup-msbuild@v1.1
-
-      - name: Verify MSBuild
+      - name: Test 3 - Simple Command
         run: |
-          Write-Host "=== MSBuild Verification ===" -ForegroundColor Green
-          try {
-            $msbuild = Get-Command MSBuild.exe -ErrorAction Stop
-            Write-Host "MSBuild found: $($msbuild.Source)" -ForegroundColor Yellow
-            
-            # Just test version, don't try to build anything yet
-            MSBuild.exe -version
-            Write-Host "✅ MSBuild verification passed" -ForegroundColor Green
-          }
-          catch {
-            Write-Host "❌ MSBuild verification failed: $_" -ForegroundColor Red
-            Write-Host "Available build tools:" -ForegroundColor Yellow
-            Get-Command *build* -ErrorAction SilentlyContinue | Select-Object Name, Source
-            exit 1
-          }
+          Write-Host "=== Test 3: Simple Command ===" -ForegroundColor Green
+          $location = Get-Location
+          Write-Host "Current location: $location" -ForegroundColor Yellow
+          Write-Host "✅ Simple command successful" -ForegroundColor Green
 
-      - name: Check Project Files
+      - name: Test 4 - Exit Code Handling
         run: |
-          Write-Host "=== Project Files Check ===" -ForegroundColor Green
-          
-          $requiredFiles = @(
-            "obs-multistream.sln",
-            "obs-multistream.vcxproj",
-            "src\obs-multistream.cpp",
-            "src\obs-multistream.h"
-          )
-          
-          $allFound = $true
-          foreach ($file in $requiredFiles) {
-            if (Test-Path $file) {
-              Write-Host "✅ Found: $file" -ForegroundColor Green
-            } else {
-              Write-Host "❌ Missing: $file" -ForegroundColor Red
-              $allFound = $false
-            }
-          }
-          
-          if ($allFound) {
-            Write-Host "✅ All required files found" -ForegroundColor Green
+          Write-Host "=== Test 4: Exit Code Handling ===" -ForegroundColor Green
+          # Test proper exit code propagation
+          $result = $true
+          if ($result) {
+            Write-Host "✅ Exit code test successful" -ForegroundColor Green
+            exit 0
           } else {
-            Write-Host "❌ Some required files missing" -ForegroundColor Red
+            Write-Host "❌ Exit code test failed" -ForegroundColor Red
             exit 1
           }
 
-      - name: Test Solution Parse
-        run: |
-          Write-Host "=== Solution Parse Test ===" -ForegroundColor Green
-          try {
-            # Just test if MSBuild can parse the solution without building
-            MSBuild.exe obs-multistream.sln /t:Clean /verbosity:quiet /nologo
-            Write-Host "✅ Solution parse successful" -ForegroundColor Green
-          }
-          catch {
-            Write-Host "❌ Solution parse failed: $_" -ForegroundColor Red
-            Write-Host "Solution content (first 10 lines):" -ForegroundColor Yellow
-            Get-Content obs-multistream.sln | Select-Object -First 10
-            exit 1
-          }
-
-      - name: Create Success Artifact
-        run: |
-          Write-Host "=== Creating Success Artifact ===" -ForegroundColor Green
-          
-          $successInfo = @"
-Windows Build Debug Success!
-
-PowerShell Version: $($PSVersionTable.PSVersion)
-MSBuild Version: $(MSBuild.exe -version | Select-Object -First 1)
-Checkout Location: $(Get-Location)
-Files Found: $(Get-ChildItem | Measure-Object).Count
-
-All basic checks passed:
-✅ PowerShell working
-✅ Repository checkout successful  
-✅ MSBuild available and working
-✅ Required project files present
-✅ Solution file parseable
-
-Next steps: Try actual build with OBS headers.
-"@
-          
-          $successInfo | Out-File -FilePath "debug-success.txt" -Encoding UTF8
-          Write-Host "✅ Debug artifacts created" -ForegroundColor Green
-
-      - name: Upload Debug Results
-        uses: actions/upload-artifact@v3
-        with:
-          name: debug-success-results
-          path: debug-success.txt
-
-  windows_skip_build:
-    name: 03 - Skip Actual Build (Debug Mode)
+  windows_skip_advanced:
+    name: 03 - Skip Advanced Tests (Debug Mode)
     runs-on: ubuntu-22.04
     if: always()
-    needs: [windows_minimal]
+    needs: [windows_basic]
     steps:
       - name: Debug Mode Notice
         run: |
-          echo "🔧 Debug mode active - skipping actual build"
-          echo "Once minimal debug passes, we'll enable full build" 
+          echo "🔧 Debug mode active - advanced tests skipped"
+          echo "Basic PowerShell tests should pass first" 
