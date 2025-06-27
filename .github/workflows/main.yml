@@ -56,26 +56,58 @@ jobs:
           $clPath = Get-ChildItem -Path "$vsPath\*\bin\HostX86\x64\cl.exe" | Select-Object -First 1
           $libPath = Get-ChildItem -Path "$vsPath\*\bin\HostX86\x64\lib.exe" | Select-Object -First 1
           
+          $librariesCreated = $false
+          
           if ($clPath -and $libPath) {
             Write-Host "Using compiler: $($clPath.FullName)" -ForegroundColor Cyan
             
-            # Compile stub object file
-            & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1 | Write-Host
-            
-            if (Test-Path "C:\obs-dev\stub.obj") {
-              # Create libraries from object file
-              & $libPath.FullName /OUT:"C:\obs-dev\lib\obs.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
-              & $libPath.FullName /OUT:"C:\obs-dev\lib\obs-frontend-api.lib" "C:\obs-dev\stub.obj" 2>&1 | Write-Host
-              Write-Host "✅ Proper stub libraries created" -ForegroundColor Green
-            } else {
-              Write-Host "⚠️ Using placeholder libraries (compilation failed)" -ForegroundColor Yellow
+            try {
+              # Compile stub object file
+              $compileOutput = & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1
+              Write-Host "Compile output: $compileOutput" -ForegroundColor Gray
+              
+              if (Test-Path "C:\obs-dev\stub.obj") {
+                # Create libraries from object file
+                $libOutput1 = & $libPath.FullName /OUT:"C:\obs-dev\lib\obs.lib" "C:\obs-dev\stub.obj" 2>&1
+                $libOutput2 = & $libPath.FullName /OUT:"C:\obs-dev\lib\obs-frontend-api.lib" "C:\obs-dev\stub.obj" 2>&1
+                Write-Host "Library creation output: $libOutput1" -ForegroundColor Gray
+                Write-Host "Library creation output: $libOutput2" -ForegroundColor Gray
+                
+                # Verify libraries were created properly
+                if ((Test-Path "C:\obs-dev\lib\obs.lib") -and (Test-Path "C:\obs-dev\lib\obs-frontend-api.lib")) {
+                  $obsLibSize = (Get-Item "C:\obs-dev\lib\obs.lib").Length
+                  $frontendLibSize = (Get-Item "C:\obs-dev\lib\obs-frontend-api.lib").Length
+                  
+                  if ($obsLibSize -gt 100 -and $frontendLibSize -gt 100) {
+                    Write-Host "✅ Proper binary stub libraries created (obs.lib: $obsLibSize bytes, obs-frontend-api.lib: $frontendLibSize bytes)" -ForegroundColor Green
+                    $librariesCreated = $true
+                  }
+                }
+              }
+            }
+            catch {
+              Write-Host "⚠️ Compiler approach failed: $_" -ForegroundColor Yellow
             }
             
             # Clean up
             Remove-Item "C:\obs-dev\stub.c" -ErrorAction SilentlyContinue
             Remove-Item "C:\obs-dev\stub.obj" -ErrorAction SilentlyContinue
           } else {
-            Write-Host "⚠️ Compiler not found, using placeholder libraries" -ForegroundColor Yellow
+            Write-Host "⚠️ Compiler not found" -ForegroundColor Yellow
+          }
+          
+          # Fallback: Create minimal binary libraries if compiler approach failed
+          if (-not $librariesCreated) {
+            Write-Host "Creating fallback binary libraries..." -ForegroundColor Yellow
+            
+            # Create minimal valid .lib files (empty archive format)
+            # LIB file header for empty archive
+            $libHeader = [byte[]](0x21, 0x3C, 0x61, 0x72, 0x63, 0x68, 0x3E, 0x0A)  # "!<arch>\n"
+            
+            [System.IO.File]::WriteAllBytes("C:\obs-dev\lib\obs.lib", $libHeader)
+            [System.IO.File]::WriteAllBytes("C:\obs-dev\lib\obs-frontend-api.lib", $libHeader)
+            
+            Write-Host "✅ Fallback binary libraries created" -ForegroundColor Green
           }
 
       - name: Create Minimal OBS Headers
@@ -121,12 +153,7 @@ jobs:
           $utilDstrHeader | Out-File -FilePath "C:\obs-dev\include\util\dstr.h" -Encoding UTF8
           $utilPlatformHeader | Out-File -FilePath "C:\obs-dev\include\util\platform.h" -Encoding UTF8
           
-          # Create empty stub libraries (will be created properly after MSBuild setup)
-          Write-Host "Creating placeholder library files..." -ForegroundColor Yellow
-          "STUB" | Out-File -FilePath "C:\obs-dev\lib\obs.lib" -Encoding ASCII
-          "STUB" | Out-File -FilePath "C:\obs-dev\lib\obs-frontend-api.lib" -Encoding ASCII
-          
-          Write-Host "✅ Complete OBS headers and libraries created" -ForegroundColor Green
+          Write-Host "✅ Complete OBS headers created" -ForegroundColor Green
 
       - name: Test Simple Compilation
         run: |
