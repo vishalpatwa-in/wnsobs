@@ -48,21 +48,7 @@ jobs:
           New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
           
           # Create ultra-minimal obs-module.h
-          $obsModuleHeader = @"
-#pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define OBS_DECLARE_MODULE()
-#define OBS_MODULE_USE_DEFAULT_LOCALE(name, locale)
-#define EXPORT __declspec(dllexport)
-
-#ifdef __cplusplus
-}
-#endif
-"@
+          $obsModuleHeader = "#pragma once`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`n#define OBS_DECLARE_MODULE()`n#define OBS_MODULE_USE_DEFAULT_LOCALE(name, locale)`n#define EXPORT __declspec(dllexport)`n`n#ifdef __cplusplus`n}`n#endif"
           
           $obsModuleHeader | Out-File -FilePath "C:\obs-dev\include\obs-module.h" -Encoding UTF8
           
@@ -73,31 +59,7 @@ extern "C" {
           Write-Host "=== Testing Simple Compilation ===" -ForegroundColor Green
           
           # Create a simple test file
-          $testCode = @"
-#include <obs-module.h>
-
-OBS_DECLARE_MODULE()
-OBS_MODULE_USE_DEFAULT_LOCALE("obs-multistream", "en-US")
-
-extern "C" {
-
-EXPORT bool obs_module_load(void) {
-    return true;
-}
-
-EXPORT void obs_module_unload(void) {
-}
-
-EXPORT const char* obs_module_name(void) {
-    return "Test Plugin";
-}
-
-EXPORT const char* obs_module_description(void) {
-    return "Simple test plugin";
-}
-
-}
-"@
+          $testCode = "#include <obs-module.h>`n`nOBS_DECLARE_MODULE()`nOBS_MODULE_USE_DEFAULT_LOCALE(`"obs-multistream`", `"en-US`")`n`nextern `"C`" {`n`nEXPORT bool obs_module_load(void) {`n    return true;`n}`n`nEXPORT void obs_module_unload(void) {`n}`n`nEXPORT const char* obs_module_name(void) {`n    return `"Test Plugin`";`n}`n`nEXPORT const char* obs_module_description(void) {`n    return `"Simple test plugin`";`n}`n`n}"
           
           $testCode | Out-File -FilePath "test-plugin.cpp" -Encoding UTF8
           
@@ -126,45 +88,7 @@ EXPORT const char* obs_module_description(void) {
           Write-Host "=== Testing MSBuild with Simple Project ===" -ForegroundColor Green
           
           # Create a minimal .vcxproj file for testing
-          $simpleProject = @"
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Release|x64">
-      <Configuration>Release</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-  </ItemGroup>
-  <PropertyGroup Label="Globals">
-    <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{TEST-GUID-1234-5678-9ABC}</ProjectGuid>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-  </PropertyGroup>
-  <Import Project="`$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'`$(Configuration)|`$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-  </PropertyGroup>
-  <Import Project="`$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <PropertyGroup Condition="'`$(Configuration)|`$(Platform)'=='Release|x64'">
-    <OutDir>test-output\</OutDir>
-    <TargetName>test-plugin</TargetName>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'`$(Configuration)|`$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <AdditionalIncludeDirectories>C:\obs-dev\include</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="test-plugin.cpp" />
-  </ItemGroup>
-  <Import Project="`$(VCTargetsPath)\Microsoft.Cpp.targets" />
-</Project>
-"@
+          $simpleProject = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`n<Project DefaultTargets=`"Build`" xmlns=`"http://schemas.microsoft.com/developer/msbuild/2003`">`n  <ItemGroup Label=`"ProjectConfigurations`">`n    <ProjectConfiguration Include=`"Release|x64`">`n      <Configuration>Release</Configuration>`n      <Platform>x64</Platform>`n    </ProjectConfiguration>`n  </ItemGroup>`n  <PropertyGroup Label=`"Globals`">`n    <VCProjectVersion>16.0</VCProjectVersion>`n    <ProjectGuid>{TEST-GUID-1234-5678-9ABC}</ProjectGuid>`n    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>`n  </PropertyGroup>`n  <Import Project=`"`$(VCTargetsPath)\Microsoft.Cpp.Default.props`" />`n  <PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|x64'`" Label=`"Configuration`">`n    <ConfigurationType>DynamicLibrary</ConfigurationType>`n    <UseDebugLibraries>false</UseDebugLibraries>`n    <PlatformToolset>v143</PlatformToolset>`n  </PropertyGroup>`n  <Import Project=`"`$(VCTargetsPath)\Microsoft.Cpp.props`" />`n  <PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|x64'`">`n    <OutDir>test-output\</OutDir>`n    <TargetName>test-plugin</TargetName>`n  </PropertyGroup>`n  <ItemDefinitionGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|x64'`">`n    <ClCompile>`n      <AdditionalIncludeDirectories>C:\obs-dev\include</AdditionalIncludeDirectories>`n    </ClCompile>`n    <Link>`n      <SubSystem>Windows</SubSystem>`n    </Link>`n  </ItemDefinitionGroup>`n  <ItemGroup>`n    <ClCompile Include=`"test-plugin.cpp`" />`n  </ItemGroup>`n  <Import Project=`"`$(VCTargetsPath)\Microsoft.Cpp.targets`" />`n</Project>"
           
           $simpleProject | Out-File -FilePath "test-plugin.vcxproj" -Encoding UTF8
           
@@ -269,22 +193,11 @@ EXPORT const char* obs_module_description(void) {
           }
           
           # Create installation instructions
-          $installText = @"
-# OBS Multistream Plugin - Build Test Results
-
-## Build Status:
-- Direct compilation test: $(if (Test-Path "test-plugin.dll") { "SUCCESS" } else { "FAILED" })
-- MSBuild simple test: $(if (Test-Path "test-output\test-plugin.dll") { "SUCCESS" } else { "FAILED" })
-- Original project build: $(if ($dllFiles -like "*obs-multistream.dll") { "SUCCESS" } else { "FAILED" })
-
-## Installation:
-1. Copy obs-plugins\64bit\obs-multistream.dll to your OBS Studio obs-plugins\64bit\ directory
-2. Restart OBS Studio
-3. Look for Multistream in View → Docks
-
-## Note:
-This is a diagnostic build to identify compilation issues.
-"@
+          $directSuccess = if (Test-Path "test-plugin.dll") { "SUCCESS" } else { "FAILED" }
+          $msbuildSuccess = if (Test-Path "test-output\test-plugin.dll") { "SUCCESS" } else { "FAILED" }
+          $originalSuccess = if ($dllFiles -like "*obs-multistream.dll") { "SUCCESS" } else { "FAILED" }
+          
+          $installText = "# OBS Multistream Plugin - Build Test Results`n`n## Build Status:`n- Direct compilation test: $directSuccess`n- MSBuild simple test: $msbuildSuccess`n- Original project build: $originalSuccess`n`n## Installation:`n1. Copy obs-plugins\64bit\obs-multistream.dll to your OBS Studio obs-plugins\64bit\ directory`n2. Restart OBS Studio`n3. Look for Multistream in View → Docks`n`n## Note:`nThis is a diagnostic build to identify compilation issues."
           
           $installText | Out-File -FilePath "$packagePath\INSTALL.txt" -Encoding UTF8
           
