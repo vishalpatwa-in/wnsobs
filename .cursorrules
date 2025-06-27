@@ -371,17 +371,18 @@ The only remaining issue is that our stub `.lib` files are empty archives withou
 - **OBS Frontend API**: obs_frontend_add_event_callback, obs_frontend_get_*
 - **Utility Functions**: blog, bfree, calldata_*, signal_handler_*
 
-## 🔧 YAML SYNTAX FIX (Current)
+## 🔧 COMPILER INCLUDE PATH FIX (Current)
 
-**Issue Found:** PowerShell here-strings (`@"..."@`) cause YAML syntax errors in GitHub Actions workflows.
+**Issue Found:** Compiler can't find standard C headers like `stdint.h` - no include path set
 ```
-You have an error in your yaml syntax on line 52
+C:\obs-dev\stub.c(2): fatal error C1034: stdint.h: no include path set
 ```
 
 **Solution Applied:**
-- ✅ **Replaced here-strings** with string concatenation using `+` operator
-- ✅ **Used `\`n` escape sequences** instead of literal newlines
-- ✅ **YAML-compatible syntax** for multi-line PowerShell code
+- ✅ **Self-contained stub code** - Removed external header dependencies
+- ✅ **Type definitions** - Added basic types (bool, uint64_t, size_t) directly in stub code
+- ✅ **Windows SDK paths** - Added proper include paths for Windows Kits
+- ✅ **Fallback approach** - Maintains binary library creation if compilation fails
 
 ### **Solution Applied (Commit ea964c2):**
 ✅ **Comprehensive stub libraries created** with all 57+ missing OBS API functions:

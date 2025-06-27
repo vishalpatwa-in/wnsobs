@@ -48,9 +48,13 @@ jobs:
           New-Item -ItemType Directory -Path "C:\obs-dev\lib" -Force | Out-Null
           
           # Create comprehensive stub source file with all 57 missing functions
-          $stubCode = "// OBS Core API Stubs`n" +
-            "#include <stdint.h>`n" +
-            "#include <stdbool.h>`n`n" +
+          $stubCode = "// OBS Core API Stubs - Self-contained (no external headers)`n" +
+            "// Define basic types to avoid needing external headers`n" +
+            "typedef unsigned char bool;`n" +
+            "typedef unsigned long long uint64_t;`n" +
+            "typedef unsigned int size_t;`n" +
+            "#define true 1`n" +
+            "#define false 0`n`n" +
             "// Data API stubs`n" +
             "void* obs_data_create(void) { return (void*)0x1; }`n" +
             "void obs_data_release(void* data) {}`n" +
@@ -134,8 +138,14 @@ jobs:
             Write-Host "Using compiler: $($clPath.FullName)" -ForegroundColor Cyan
             
             try {
-              # Compile stub object file
-              $compileOutput = & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" 2>&1
+              # Compile stub object file with proper include paths
+              $windowsSDKPath = "${env:ProgramFiles(x86)}\Windows Kits\10\Include"
+              $latestSDK = Get-ChildItem -Path $windowsSDKPath -Directory | Sort-Object Name -Descending | Select-Object -First 1
+              $includeArgs = ""
+              if ($latestSDK) {
+                $includeArgs = "/I`"$($latestSDK.FullName)\ucrt`" /I`"$($latestSDK.FullName)\shared`" /I`"$($latestSDK.FullName)\um`""
+              }
+              $compileOutput = & $clPath.FullName /c "C:\obs-dev\stub.c" /Fo"C:\obs-dev\stub.obj" $includeArgs.Split(' ') 2>&1
               Write-Host "Compile output: $compileOutput" -ForegroundColor Gray
               
               if (Test-Path "C:\obs-dev\stub.obj") {
